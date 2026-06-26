@@ -16,8 +16,25 @@
 
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
+const nodePath = require('path');
 const economy = require('./economy');   // zero-dep reward rules (always present)
 const solana = require('./solana');     // lazy Solana adapter (self-guards if libs absent)
+
+// The front-end (index.html, js/, css/, pages/, assets/) lives one level up
+// from this file — the repo root. We serve it so a single Railway service
+// hosts BOTH the website and the API.
+const WEB_ROOT = nodePath.join(__dirname, '..');
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8', '.map': 'application/json',
+  '.webmanifest': 'application/manifest+json'
+};
 
 const PORT = process.env.PORT || 3001;
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -191,6 +208,34 @@ function body(req) {
   });
 }
 
+// Serve a static front-end file from the repo root. Maps "/" → index.html,
+// blocks path traversal, and falls back to the landing page for unknown
+// extension-less paths so deep links still load.
+function serveStatic(res, pathname) {
+  let rel = pathname;
+  try { rel = decodeURIComponent(pathname); } catch (e) { /* keep raw */ }
+  if (rel === '/' || rel === '') rel = '/index.html';
+  const filePath = nodePath.normalize(nodePath.join(WEB_ROOT, rel));
+  if (filePath !== WEB_ROOT && !filePath.startsWith(WEB_ROOT + nodePath.sep)) {
+    return send(res, 403, { error: 'forbidden' });
+  }
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      if (!nodePath.extname(filePath)) {           // no extension → SPA-style fallback
+        return fs.readFile(nodePath.join(WEB_ROOT, 'index.html'), (e2, html) => {
+          if (e2) return send(res, 404, { error: 'not found' });
+          cors(res); res.writeHead(200, { 'Content-Type': MIME['.html'] }); res.end(html);
+        });
+      }
+      return send(res, 404, { error: 'not found' });
+    }
+    const ext = nodePath.extname(filePath).toLowerCase();
+    cors(res);
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.end(data);
+  });
+}
+
 /* ---------------- P2E helpers ---------------- */
 
 // Per-player lock so two withdraw requests can't both pass the balance
@@ -239,6 +284,12 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;
   try {
+    // Anything that isn't an API call is a request for the website itself.
+    if (!path.startsWith('/api')) {
+      if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(res, path);
+      return send(res, 404, { error: 'not found' });
+    }
+
     if (path === '/api/health') return send(res, 200, { ok: true, store: DATABASE_URL ? 'postgres' : 'memory' });
 
     if (path === '/api/register' && req.method === 'POST') {

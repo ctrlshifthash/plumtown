@@ -1,0 +1,22 @@
+{
+  "name": "plumtown",
+  "version": "1.0.0",
+  "description": "Plumtown — a cozy play-to-earn life sim. One service hosts the website (static front-end) and the community + P2E backend API.",
+  "private": true,
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "optionalDependencies": {
+    "@solana/web3.js": "^1.95.3",
+    "@solana/spl-token": "^0.4.8",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
+  }
+}
