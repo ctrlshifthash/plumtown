@@ -1,16 +1,25 @@
 /* ============================================================
-   LifeSim — front-end config
-   Leave cloudApi EMPTY for offline single-player + a simulated
-   community. After you deploy the backend (see server/README.md),
-   paste its public URL here to switch on REAL shared multiplayer:
+   Plumtown — front-end config
+   The website and the API are served from the SAME origin (one
+   Railway service), so the client automatically talks to the
+   backend on whatever host it's loaded from — playplumtown.com,
+   the *.up.railway.app URL, any custom domain.
 
-     window.LIFESIM_CONFIG = { cloudApi: 'https://your-app.up.railway.app' };
+   A local static preview (serve.js on localhost, or file://) has
+   no API, so we fall back to offline single-player + a simulated
+   community automatically. To force a specific backend instead,
+   just hardcode cloudApi below, e.g.:
+       window.LIFESIM_CONFIG = { cloudApi: 'https://playplumtown.com' };
 
-   (No trailing slash.)
-
-   Real P2E payouts (SOL/USDC) need this same backend. ALL economy
-   rules — reward amounts, caps, network (devnet/mainnet), the
-   treasury — live SERVER-SIDE (see server/.env.example). The client
-   fetches them from /api/p2e/config, so there is nothing secret here.
+   Nothing secret lives here: ALL economy rules — reward amounts,
+   caps, network (mainnet), the treasury — are SERVER-SIDE. The
+   client only reads them from /api/p2e/config.
    ============================================================ */
-window.LIFESIM_CONFIG = { cloudApi: '' };
+(function () {
+  var loc = window.location;
+  var isWeb = loc.protocol === 'http:' || loc.protocol === 'https:';
+  var isLocal = loc.protocol === 'file:' ||
+    /^(localhost|127\.|0\.0\.0\.0|::1|\[::1\])/.test(loc.hostname);
+  // Same-origin API when deployed; empty (offline mode) for local static preview.
+  window.LIFESIM_CONFIG = { cloudApi: (isWeb && !isLocal) ? loc.origin : '' };
+})();
