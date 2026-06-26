@@ -30,6 +30,7 @@ const key = () => crypto.randomBytes(24).toString('hex');
 function memoryStore() {
   const players = new Map(); // id -> { id, name, apiKey, summary, world, lastSeen }
   const messages = [];       // global neighbourhood chat: { id, playerId, name, text, at }
+  let pool = { day: '', spent: 0 }; // global daily payout pool, in base units (lamports)
   return {
     async init() {},
     async createPlayer(name) {
@@ -73,7 +74,10 @@ function memoryStore() {
       messages.push(m); if (messages.length > 200) messages.splice(0, messages.length - 200);
       return m;
     },
-    async listMessages(limit) { return messages.slice(-(limit || 50)); }
+    async listMessages(limit) { return messages.slice(-(limit || 50)); },
+    // ---- global daily payout pool (treasury-wide cap) ----
+    async poolSpentToday(now) { const d = economy.dayStamp(now); return pool.day === d ? pool.spent : 0; },
+    async addPoolSpend(base, now) { const d = economy.dayStamp(now); if (pool.day !== d) pool = { day: d, spent: 0 }; pool.spent += base; }
   };
 }
 
@@ -93,6 +97,8 @@ function pgStore() {
         base numeric, signature text, status text, created_at timestamptz DEFAULT now())`);
       await pool.query(`CREATE TABLE IF NOT EXISTS messages (
         id text PRIMARY KEY, player_id text, name text, body text, created_at timestamptz DEFAULT now())`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS daily_pool (
+        day text PRIMARY KEY, spent_base numeric DEFAULT 0)`);
     },
     async createPlayer(name) {
       const id = uid(), apiKey = key();
@@ -149,6 +155,16 @@ function pgStore() {
     async listMessages(limit) {
       const r = await pool.query('SELECT id,player_id,name,body,created_at FROM messages ORDER BY created_at DESC LIMIT $1', [limit || 50]);
       return r.rows.map((row) => ({ id: row.id, playerId: row.player_id, name: row.name, text: row.body, at: new Date(row.created_at).getTime() })).reverse();
+    },
+    // ---- global daily payout pool (treasury-wide cap) ----
+    async poolSpentToday(now) {
+      const r = await pool.query('SELECT spent_base FROM daily_pool WHERE day=$1', [economy.dayStamp(now)]);
+      return r.rows[0] ? Number(r.rows[0].spent_base) : 0;
+    },
+    async addPoolSpend(base, now) {
+      await pool.query(
+        'INSERT INTO daily_pool(day,spent_base) VALUES($1,$2) ON CONFLICT (day) DO UPDATE SET spent_base = daily_pool.spent_base + $2',
+        [economy.dayStamp(now), base]);
     }
   };
 }
@@ -338,6 +354,16 @@ const server = http.createServer(async (req, res) => {
       if (!plan.ok) return send(res, 200, { ok: false, reason: plan.reason, detail: plan, rewards: publicRewards(r, now) });
       if (!solana.available()) return send(res, 200, { ok: false, reason: 'payouts_unavailable', rewards: publicRewards(r, now) });
 
+      // GLOBAL daily pool — hard ceiling on total treasury outflow across
+      // ALL players per day. The single most important treasury safeguard.
+      const poolCap = economy.dailyPoolBase();
+      if (poolCap > 0) {
+        const spent = await db.poolSpentToday(now);
+        if (spent + plan.base > poolCap) {
+          return send(res, 200, { ok: false, reason: 'daily_pool_reached', rewards: publicRewards(r, now) });
+        }
+      }
+
       withdrawLocks.add(me.id);
       try {
         // Debit FIRST, then pay. If the send fails we refund. This favours
@@ -358,6 +384,7 @@ const server = http.createServer(async (req, res) => {
           return send(res, 200, { ok: false, reason: result.error || 'send_failed', rewards: publicRewards(r, now) });
         }
         await db.addPayout(me.id, { id: pid, asset: solana.REWARD_ASSET, credits: plan.grossCredits, base: plan.base, signature: result.signature, status: 'sent' });
+        await db.addPoolSpend(plan.base, now);            // count it against today's global pool
         return send(res, 200, {
           ok: true, signature: result.signature, explorer: solana.explorerTx(result.signature),
           asset: solana.REWARD_ASSET, base: plan.base, credits: plan.grossCredits, fee: plan.feeCredits,

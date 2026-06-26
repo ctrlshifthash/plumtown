@@ -50,6 +50,10 @@ const CONFIG = {
   // Faucet caps.
   dailyRewardCredits: numEnv('P2E_DAILY_REWARD', 50),       // login bonus / 24h
   dailyEarnCap:       numEnv('P2E_DAILY_EARN_CAP', 1500),   // max RC minted / 24h (all sources)
+
+  // GLOBAL treasury safety: total real payout per day across ALL players.
+  // The single most important cap — bounds your daily downside no matter what.
+  dailyPoolSol:       numEnv('P2E_DAILY_POOL_SOL', 1),      // whole SOL paid out / 24h (0 = unlimited)
 };
 
 /* ----------------------------------------------------------------
@@ -177,6 +181,14 @@ function creditsToBase(credits) {
   return Math.floor(whole * Math.pow(10, decimals));
 }
 
+// The global daily payout pool, in on-chain base units (lamports for SOL).
+// 0 = unlimited. Enforced in the withdraw route across ALL players.
+function dailyPoolBase() {
+  if (!CONFIG.dailyPoolSol) return 0;
+  const decimals = CONFIG.rewardAsset === 'USDC' ? 6 : 9;
+  return Math.floor(CONFIG.dailyPoolSol * Math.pow(10, decimals));
+}
+
 // Public snapshot of the rules + a player's standing (for the UI).
 function publicConfig() {
   return {
@@ -188,12 +200,13 @@ function publicConfig() {
     dailyEarnCap: CONFIG.dailyEarnCap,
     withdrawFee: CONFIG.withdrawFeeCredits,
     withdrawCooldownMs: CONFIG.withdrawCooldownMs,
-    payoutsEnabled: CONFIG.payoutsEnabled
+    payoutsEnabled: CONFIG.payoutsEnabled,
+    dailyPoolSol: CONFIG.dailyPoolSol
   };
 }
 
 module.exports = {
   CONFIG, QUEST_RC, MILESTONE_RC,
   blankRewards, dayStamp, eventReward, creditKey,
-  planCredit, planWithdraw, creditsToBase, publicConfig
+  planCredit, planWithdraw, creditsToBase, dailyPoolBase, publicConfig
 };
