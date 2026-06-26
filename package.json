@@ -18,5 +18,8 @@
   },
   "optionalDependencies": {
     "@solana/spl-token": "^0.4.8"
+  },
+  "overrides": {
+    "uuid": "9.0.1"
   }
 }
