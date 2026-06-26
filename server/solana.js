@@ -72,6 +72,17 @@ function connection() {
 }
 
 function available() { return !!(web3 && treasury()); }
+// Live diagnostic for /api/health — distinguishes "libs missing" from
+// "bad treasury key" (loadError is read AFTER the lazy treasury attempt).
+function status() {
+  const ready = available();
+  return {
+    ready,
+    libsLoaded: !!web3,
+    treasury: ready ? treasuryAddress() : '',
+    error: loadError ? String((loadError && loadError.message) || loadError) : null
+  };
+}
 function canVerify() { return !!(web3 && nacl && bs58); } // signature checks need no treasury
 function treasuryAddress() { const t = treasury(); return t ? t.publicKey.toBase58() : ''; }
 
@@ -160,7 +171,7 @@ async function payoutUSDC(toAddress, microUsdc) {
 }
 
 module.exports = {
-  available, canVerify, loadError, NETWORK, REWARD_ASSET, USDC_MINT,
+  available, status, canVerify, loadError, NETWORK, REWARD_ASSET, USDC_MINT,
   treasuryAddress, treasuryBalanceLamports,
   verifyWalletSignature, isValidAddress,
   payout, explorerTx

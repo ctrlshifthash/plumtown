@@ -290,7 +290,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, { error: 'not found' });
     }
 
-    if (path === '/api/health') return send(res, 200, { ok: true, store: DATABASE_URL ? 'postgres' : 'memory' });
+    if (path === '/api/health') return send(res, 200, { ok: true, store: DATABASE_URL ? 'postgres' : 'memory', solana: solana.status() });
 
     if (path === '/api/register' && req.method === 'POST') {
       const b = await body(req);
