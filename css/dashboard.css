@@ -437,8 +437,7 @@
   background: #12121f;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-xl);
-  width: 100%;
-  max-width: 540px;
+  width: min(540px, calc(100vw - 40px));
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow);
@@ -557,6 +556,15 @@
   .dash-content { padding: 18px; }
   .dash-grid, .wallet-grid, .stat-grid { grid-template-columns: 1fr; }
   .view-head { flex-direction: column; align-items: flex-start; }
+  .top-right { gap: 6px; }
+  .dash-home { display: none; }
+  #topConnect { font-size: 12px; padding: 7px 11px; }
+  body.dash-body { overflow-x: hidden; }
+  .modal-card { width: calc(100vw - 28px) !important; max-width: 460px; }
+  .welcome-hero { padding: 20px 16px 16px; }
+  .welcome-hero p { font-size: 12px; }
+  .welcome-foot, .modal-foot { flex-wrap: wrap; gap: 8px; }
+  .market-sell { position: static; }
 }
 
 /* ---------- v3 additions: hair, aspiration, token strip, wallet connect ---------- */
@@ -1048,7 +1056,7 @@
 .hiw-flow b { color: var(--text); }
 
 /* ============ WELCOME modal ============ */
-.welcome-card { max-width: 440px; position: relative; overflow: visible; }
+.welcome-card { width: min(440px, calc(100vw - 40px)); max-width: none; position: relative; overflow: visible; }
 .welcome-hero { background: var(--grad-meadow); border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding: 28px 24px 22px; text-align: center; border-bottom: 3px solid var(--border-ink); }
 .welcome-hero h2 { font-family: var(--font-display); color: #fff; text-shadow: 0 2px 0 rgba(40,70,30,0.4); margin-top: 10px; }
 .welcome-hero p { color: #eafff0; font-weight: 700; font-size: 13px; }

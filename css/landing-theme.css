@@ -159,6 +159,17 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); }
 .tier-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding: 14px 18px; background: var(--paper); border: 3px solid var(--border-ink); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
 .tier-foot span { color: var(--ink-dim); font-size: 13.5px; }
 
+/* ---- mobile ---- */
+@media (max-width: 600px) {
+  .hero { padding: 30px 18px 84px; margin: 72px auto 38px; }
+  .hero-title { font-size: clamp(26px, 9vw, 52px); }
+  .hero-sub { font-size: 14.5px; padding: 14px 16px; }
+  .hero-ca { font-size: 11px; }
+  .hero-ca code { font-size: 10.5px; }
+  .section { padding: 40px 16px; }
+  .tier-foot { flex-direction: column; align-items: stretch; text-align: center; }
+}
+
 /* ---- P2E flow ---- */
 .flow-step { background: var(--paper); border: 3px solid var(--border-ink); border-radius: var(--radius-lg); box-shadow: var(--shadow); color: var(--ink); }
 .flow-ic { background: var(--paper-2); border: 2px solid var(--border-ink); border-radius: 14px; box-shadow: var(--bevel-light); }

@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    LifeSim — Game Screen Styles (v3 — walking Sim, dollhouse)
    Top-down house with walls/floors, a pathfinding Sim with a
    plumbob, day/night lighting, emotions & moodlets.
@@ -698,9 +698,19 @@ body.visiting .lot-obj { cursor: default; }
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) { .game-layout { grid-template-columns: 230px 1fr 250px; } }
 @media (max-width: 900px) {
-  .game-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; overflow-y: auto; }
-  .panel-side { max-height: 260px; }
+  .game-layout { grid-template-columns: 1fr; grid-template-rows: auto auto auto; overflow-y: auto; }
+  .panel-side { max-height: 300px; }
   .gt-center { display: none; }
   .build-wrap { flex-direction: column; }
   .build-sidebar { width: 100%; }
+  .game-stage { order: -1; }                                   /* game world first, panels below */
+  .lot-view, .build-lot { min-height: 56vh; }
+  .mode-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+  .mode-tab { flex: 0 0 auto; }
 }
+@media (max-width: 560px) {
+  .game-layout { padding: 8px; gap: 8px; }
+  .game-top { padding: 6px 8px; gap: 6px; }
+  .lot-view, .build-lot { min-height: 60vh; }
+}
+// _b:6

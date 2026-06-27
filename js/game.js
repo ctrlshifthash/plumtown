@@ -33,7 +33,8 @@
     const usableW = availW - 2 * (PAD + WALL) - 6;
     const usableH = availH - 2 * (PAD + WALL) - 6;
     let t = Math.floor(Math.min(usableW / w, usableH / h));
-    t = Math.max(38, Math.min(98, t));
+    const minT = availW < 560 ? 26 : 38; // let the whole lot fit a narrow phone screen
+    t = Math.max(minT, Math.min(98, t));
     const fw = w * t, fh = h * t;
     const ox = Math.max(PAD + WALL, Math.floor((availW - fw) / 2));
     const oy = Math.max(PAD + WALL, Math.floor((availH - fh) / 2));
