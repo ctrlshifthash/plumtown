@@ -534,6 +534,8 @@
     presentLotKey = state.location;
   }
 
+  function petEmojiFor(id) { const p = (LS.PETS || []).find((x) => x.id === id); return p ? p.emoji : '🐾'; }
+
   function buildLot() {
     LS.Build.ensureLot(state);
     LS.Movement.ensureSimTile(state, sim);
@@ -655,6 +657,7 @@
       '</div>' +
       '<div class="act-bubble"></div>' +
       '<div class="fx-emit"></div>' +
+      (sim.pet ? '<div class="sim-pet">' + petEmojiFor(sim.pet) + '</div>' : '') +
       simBodyHTML(sim.skinTone, sim.hairColor, sim.outfitColor);
     frag.appendChild(tok);
     simTokenEl = tok;

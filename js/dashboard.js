@@ -203,6 +203,28 @@
         '<div class="wd-swatch" style="background:' + o.color + '"></div>' +
         '<div class="wd-name">' + escapeHtml(o.name) + '</div>' + action + '</div>';
     }).join('');
+    const pg = $('#petGrid');
+    if (pg) {
+      pg.innerHTML = (LS.PETS || []).map((p) => {
+        const has = sim.pet === p.id;
+        const action = has ? '<span class="wd-eq">✓ Adopted</span>'
+          : '<button class="btn btn-primary btn-sm pet-buy" data-id="' + p.id + '">Adopt 💎 ' + num(p.plum) + '</button>';
+        return '<div class="wd-item' + (has ? ' on' : '') + '"><div class="wd-pet">' + p.emoji + '</div>' +
+          '<div class="wd-name">' + escapeHtml(p.name) + '</div>' + action + '</div>';
+      }).join('');
+    }
+  }
+  async function petBuy(id) {
+    const sim = wardrobeSim(); const p = (LS.PETS || []).find((x) => x.id === id);
+    if (!sim || !p) return;
+    if (sim.pet === id) return;
+    if (!LS.P2E || !LS.P2E.isLive || !LS.P2E.isLive()) { toast('Connect your wallet (Wallet tab) to spend $PLUM', 'error'); return; }
+    const r = await LS.P2E.spend(p.plum, 'pet:' + p.id);
+    if (!r || !r.ok) { toast(r && r.reason === 'insufficient' ? 'Not enough 💎 $PLUM' : 'Could not adopt', 'error'); return; }
+    if (typeof r.balance === 'number') state.player.lsc = r.balance;
+    sim.pet = id; LS.save(state);
+    renderWardrobe(); renderTopbar();
+    toast('Adopted a ' + p.name + ' ' + p.emoji + '! It’ll follow you in-game.', 'success');
   }
   function wardrobeEquip(id) {
     const sim = wardrobeSim(); const o = (LS.WARDROBE || []).find((x) => x.id === id);
@@ -1058,6 +1080,7 @@
       const eq = e.target.closest('.wd-equip'); if (eq) { wardrobeEquip(eq.dataset.id); return; }
       const by = e.target.closest('.wd-buy'); if (by) wardrobeBuy(by.dataset.id);
     });
+    const pgrid = $('#petGrid'); if (pgrid) pgrid.addEventListener('click', (e) => { const b = e.target.closest('.pet-buy'); if (b) petBuy(b.dataset.id); });
   }
 
   // ---------------- WELCOME / ONBOARDING ----------------

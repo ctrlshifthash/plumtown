@@ -261,6 +261,8 @@
 .eye { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #1a1a26; top: 10px; transition: transform .15s, opacity .15s; }
 .eye.l { left: 6px; } .eye.r { right: 6px; }
 .sim-token.face-up .eye { opacity: 0; }
+.sim-pet { position: absolute; left: -17px; bottom: 1px; font-size: 17px; z-index: 1; pointer-events: none; animation: petBob 1.2s ease-in-out infinite; }
+@keyframes petBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .sim-token.face-left .eye { transform: translateX(-2px); }
 .sim-token.face-right .eye { transform: translateX(2px); }
 .sim-torso {

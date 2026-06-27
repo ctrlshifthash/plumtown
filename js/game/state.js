@@ -204,6 +204,18 @@
     { id: 'px_crown',    name: 'Crown Royale',   color: '#caa53a', plum: 800, premium: true }
   ];
 
+  // Pets — adopted with $PLUM; the chosen pet follows your Sim around the lot.
+  const PETS = [
+    { id: 'cat',    name: 'Cat',    emoji: '🐱', plum: 150 },
+    { id: 'dog',    name: 'Dog',    emoji: '🐶', plum: 150 },
+    { id: 'bunny',  name: 'Bunny',  emoji: '🐰', plum: 200 },
+    { id: 'duck',   name: 'Duck',   emoji: '🦆', plum: 250 },
+    { id: 'fox',    name: 'Fox',    emoji: '🦊', plum: 350 },
+    { id: 'panda',  name: 'Panda',  emoji: '🐼', plum: 500 },
+    { id: 'unicorn',name: 'Unicorn',emoji: '🦄', plum: 750 },
+    { id: 'dragon', name: 'Dragon', emoji: '🐉', plum: 1000 }
+  ];
+
   // Emotional states (Sims-style). Picked by emotions.js from needs + moodlets.
   const EMOTION_META = {
     ecstatic:      { label: 'Ecstatic',      icon: '🤩', color: '#2ee6a6', tone: 'good' },
@@ -534,7 +546,7 @@
   const LifeSim = {
     // data
     NEEDS, NEED_META, SKILLS, SKILL_META, CAREERS, ASPIRATIONS, TRAITS,
-    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, WARDROBE, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
+    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, WARDROBE, PETS, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
     HOME_WALLS, HOME_ROOMS, HOME_DOORS,
     // factories
     createSim, createNPC, hydrateSim,

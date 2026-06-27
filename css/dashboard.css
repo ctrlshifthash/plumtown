@@ -757,6 +757,8 @@
 .wd-item .btn { width: 100%; }
 .wd-item.premium { border-color: #e8b923; box-shadow: 0 0 0 2px rgba(232,185,35,0.25), 0 3px 0 var(--border-2); }
 .wd-item.premium .wd-name::after { content: ' 💎'; }
+.wd-section-title { font-family: var(--font-display); font-weight: 800; color: var(--text); margin: 6px 2px 8px; font-size: 14px; }
+.wd-pet { font-size: 40px; line-height: 1.05; }
 
 /* ---- P2E: redeemable rewards (real Solana payouts) ---- */
 .p2e-panel { margin-top: 18px; }
