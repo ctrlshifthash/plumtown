@@ -720,9 +720,10 @@
     renderOverview();
     renderTopbar();
     toast(`+${amt} PLUM claimed!`, 'success');
-    // Mirror to the server-verified redeemable pool (real-reward credits).
-    if (LS.P2E && LS.P2E.isLive()) {
-      LS.P2E.claim('daily').then((res) => {
+    // Mirror to the server-verified redeemable pool (real-reward credits),
+    // auto-registering an account first so the very first claim counts.
+    if (LS.Cloud && LS.Cloud.isRemote()) {
+      LS.Cloud.ensureSignedIn().then(() => LS.P2E.claim('daily')).then((res) => {
         if (res && res.ok) { toast('+' + res.credited + ' redeemable credits', 'success'); renderP2E(); }
       }).catch(() => {});
     }
@@ -962,10 +963,14 @@
     else maybeShowWelcome();
     // refresh daily timer every second
     setInterval(renderDaily, 1000);
-    // keep the shared world in sync if we're signed in to a backend
-    if (LS.Cloud && LS.Cloud.isRemote() && LS.Cloud.me()) {
-      LS.Cloud.publish(state);
-      LS.Cloud.heartbeat();
+    // Auto-register a shared-world account so real rewards (daily, quests,
+    // milestones, withdrawals) work, then sync the player's home.
+    if (LS.Cloud && LS.Cloud.isRemote()) {
+      LS.Cloud.ensureSignedIn().then(() => {
+        LS.Cloud.publish(state);
+        LS.Cloud.heartbeat();
+        if ($('#view-wallet') && $('#view-wallet').classList.contains('active')) renderP2E();
+      }).catch(() => {});
     }
   }
 

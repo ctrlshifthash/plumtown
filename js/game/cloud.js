@@ -168,6 +168,17 @@
     return ident;
   }
 
+  // Make sure the player has a shared-world account (needed for real rewards:
+  // daily, quests, milestones, withdrawals). Registers once, silently; concurrent
+  // callers share one in-flight request so we never create duplicate accounts.
+  let _signInPromise = null;
+  async function ensureSignedIn() {
+    if (!isRemote()) return null;
+    if (me()) return me();
+    if (!_signInPromise) _signInPromise = signIn(selfWorld().player.name || 'Player').catch(() => null);
+    return (await _signInPromise) || me();
+  }
+
   async function publish(state) {
     if (!isRemote() || !me()) return false;
     try {
@@ -311,11 +322,15 @@
   }
 
   LS.Cloud = {
-    isRemote, me, signIn, signOut, publish, heartbeat,
+    isRemote, me, signIn, ensureSignedIn, signOut, publish, heartbeat,
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
     getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, // marketplace
     listPlayersLocal, getWorldLocal, ensureSeeded, selfWorld, generateNeighborWorld, // local/test
     housePreviewHTML, summaryOf, worldSnapshot
   };
+
+  // Auto-register on first load (remote mode) so real rewards work without the
+  // player ever hunting for the Community "Join" button.
+  ensureSignedIn();
 })();
