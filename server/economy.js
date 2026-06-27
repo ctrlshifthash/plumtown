@@ -42,14 +42,14 @@ const CONFIG = {
   creditsPerUnit: numEnv('P2E_CREDITS_PER_UNIT', 100000),
 
   // Withdrawal rails.
-  minWithdrawCredits: numEnv('P2E_MIN_WITHDRAW', 2000),     // floor to cash out
+  minWithdrawCredits: numEnv('P2E_MIN_WITHDRAW', 500),      // floor to cash out (0.005 SOL)
   dailyWithdrawCap:   numEnv('P2E_DAILY_WITHDRAW_CAP', 20000), // RC / 24h
   withdrawCooldownMs: numEnv('P2E_WITHDRAW_COOLDOWN_MS', 60 * 1000),
   withdrawFeeCredits: numEnv('P2E_WITHDRAW_FEE', 0),         // RC kept by treasury per cashout
 
   // Faucet caps.
   dailyRewardCredits: numEnv('P2E_DAILY_REWARD', 50),       // login bonus / 24h
-  dailyEarnCap:       numEnv('P2E_DAILY_EARN_CAP', 1500),   // max RC minted / 24h (all sources)
+  dailyEarnCap:       numEnv('P2E_DAILY_EARN_CAP', 5000),   // max RC minted / 24h (all sources)
 
   // GLOBAL treasury safety: total real payout per day across ALL players.
   // The single most important cap — bounds your daily downside no matter what.

@@ -328,6 +328,7 @@
 
   // ---------------- RENDER: P2E (real Solana rewards) ----------------
   let _p2eConfig = null;
+  let _p2eState = null; // { wallet, bal, min, live } — latest gating snapshot for the withdraw button
   async function renderP2E() {
     const panel = $('#p2ePanel');
     if (!panel) return;
@@ -369,6 +370,7 @@
     const bal = r.balance || 0;
     const min = c.minWithdraw || 0;
     const canWithdraw = !!r.wallet && c.payoutsLive && bal >= min;
+    _p2eState = { wallet: r.wallet, bal: bal, min: min, live: !!c.payoutsLive };
 
     const walletRow = r.wallet
       ? '<div class="p2e-wallet connected">🟢 <code>' + escapeHtml(r.wallet.slice(0, 6) + '…' + r.wallet.slice(-4)) + '</code>' +
@@ -384,7 +386,11 @@
         '<div class="p2e-approx">≈ ' + (bal / perUnit).toFixed(dp) + ' ' + asset + ' redeemable</div>' +
       '</div>' +
       '<div class="p2e-walletrow">' + walletRow + '</div>' +
-      '<button class="btn btn-primary btn-block" id="p2eWithdraw"' + (canWithdraw ? '' : ' disabled') + '>Withdraw to wallet</button>' +
+      '<button class="btn btn-primary btn-block" id="p2eWithdraw">' +
+        (!r.wallet ? '🔗 Connect a wallet to withdraw'
+          : (bal < min ? 'Withdraw — need ' + num(min) + ' credits'
+            : '💸 Withdraw ' + (bal / perUnit).toFixed(dp) + ' ' + asset)) +
+      '</button>' +
       '<div class="p2e-meta"><span>Min ' + num(min) + '</span><span>·</span>' +
         '<span>Daily cap ' + num(c.dailyWithdrawCap || 0) + '</span><span>·</span>' +
         '<span>Earned today ' + num(r.earnedToday || 0) + '/' + num(c.dailyEarnCap || 0) + '</span></div>' +
@@ -425,6 +431,13 @@
 
   async function doWithdrawReal() {
     if (!LS.P2E) return;
+    // Friendly, specific guidance instead of a dead/disabled button.
+    const s = _p2eState || {};
+    if (!s.wallet) { toast('Connect your Phantom wallet first — use the button just above ↑', 'error'); return; }
+    if ((s.bal || 0) < (s.min || 0)) {
+      toast('You need ' + num(s.min || 0) + ' credits to cash out — you have ' + num(s.bal || 0) + '. Keep playing to earn more! 🎮', '');
+      return;
+    }
     const btn = $('#p2eWithdraw');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     try {
