@@ -194,7 +194,14 @@
     { id: 'emerald',    name: 'Emerald Gown',  color: '#1e9e6a', price: 500 },
     { id: 'crimson',    name: 'Crimson Cloak', color: '#c0354f', price: 650 },
     { id: 'midnight',   name: 'Midnight Coat', color: '#2b2b40', price: 750 },
-    { id: 'gold',       name: 'Golden Drip',   color: '#e8b923', price: 1200 }
+    { id: 'gold',       name: 'Golden Drip',   color: '#e8b923', price: 1200 },
+    // 💎 Premium — bought with $PLUM (redeemable rewards), exclusive looks
+    { id: 'px_galaxy',   name: 'Galaxy Suit',    color: '#3a2d7a', plum: 200, premium: true },
+    { id: 'px_neon',     name: 'Neon Runner',    color: '#19d8b4', plum: 250, premium: true },
+    { id: 'px_rosegold', name: 'Rose Gold',      color: '#dba0a0', plum: 300, premium: true },
+    { id: 'px_aurora',   name: 'Aurora Drip',    color: '#52d98a', plum: 400, premium: true },
+    { id: 'px_obsidian', name: 'Obsidian Cloak', color: '#181826', plum: 500, premium: true },
+    { id: 'px_crown',    name: 'Crown Royale',   color: '#caa53a', plum: 800, premium: true }
   ];
 
   // Emotional states (Sims-style). Picked by emotions.js from needs + moodlets.

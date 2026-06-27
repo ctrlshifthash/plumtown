@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    LifeSim — P2E client (non-custodial Solana)
    The browser half of real play-to-earn:
      • connect a Phantom / Solflare wallet (the user keeps custody —
@@ -144,6 +144,13 @@
     catch (e) { return { ok: false, reason: 'network' }; }
   }
 
+  // Spend redeemable $PLUM credits on in-game content (premium store, pets, expansions).
+  async function spend(amount, reason) {
+    if (!isLive()) return { ok: false, reason: 'offline' };
+    try { return await apiPost('/spend', { amount: amount, reason: reason || 'purchase' }); }
+    catch (e) { return { ok: false, reason: 'network' }; }
+  }
+
   // Cash out. amount in credits, or 0/undefined for "max allowed".
   async function withdraw(amount) {
     if (!isLive()) { const e = new Error('offline'); e.reason = 'offline'; throw e; }
@@ -162,7 +169,8 @@
     isRemote, isLive, walletInstalled, provider,
     connect, disconnect, connectedAddress,
     linkWallet, unlinkWallet,
-    config, rewards, claim, withdraw,
+    config, rewards, claim, spend, withdraw,
     creditsToAsset, linkMessage
   };
 })();
+// _b:7

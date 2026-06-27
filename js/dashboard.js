@@ -191,14 +191,15 @@
   function renderWardrobe() {
     const sim = wardrobeSim(); const grid = $('#wardrobeGrid'); const bal = $('#wardrobeBal');
     if (!sim || !grid) return;
-    if (bal) bal.innerHTML = 'Dressing <b>' + escapeHtml(sim.name) + '</b> · Wallet <b>₱' + num(sim.money || 0) + '</b>';
+    if (bal) bal.innerHTML = 'Dressing <b>' + escapeHtml(sim.name) + '</b> · ₱<b>' + num(sim.money || 0) + '</b> · 💎<b>' + num(state.player.lsc || 0) + '</b> $PLUM';
     grid.innerHTML = (LS.WARDROBE || []).map((o) => {
       const equipped = o.color === sim.outfitColor;
       const owned = ownsOutfit(sim, o);
+      const priceLabel = o.plum ? '💎 ' + num(o.plum) : '₱' + num(o.price || 0);
       const action = equipped ? '<span class="wd-eq">✓ Wearing</span>'
         : (owned ? '<button class="btn btn-primary btn-sm wd-equip" data-id="' + o.id + '">Wear</button>'
-          : '<button class="btn btn-ghost btn-sm wd-buy" data-id="' + o.id + '">Buy ₱' + num(o.price) + '</button>');
-      return '<div class="wd-item' + (equipped ? ' on' : '') + '">' +
+          : '<button class="btn ' + (o.plum ? 'btn-primary' : 'btn-ghost') + ' btn-sm wd-buy" data-id="' + o.id + '">Buy ' + priceLabel + '</button>');
+      return '<div class="wd-item' + (equipped ? ' on' : '') + (o.premium ? ' premium' : '') + '">' +
         '<div class="wd-swatch" style="background:' + o.color + '"></div>' +
         '<div class="wd-name">' + escapeHtml(o.name) + '</div>' + action + '</div>';
     }).join('');
@@ -210,15 +211,23 @@
     renderWardrobe(); refreshSimCards();
     toast('Now wearing ' + o.name + ' 👕', 'success');
   }
-  function wardrobeBuy(id) {
+  async function wardrobeBuy(id) {
     const sim = wardrobeSim(); const o = (LS.WARDROBE || []).find((x) => x.id === id);
     if (!sim || !o) return;
-    if ((sim.money || 0) < o.price) { toast('Not enough ₱ — earn more by playing', 'error'); return; }
-    sim.money = Math.round((sim.money || 0) - o.price);
+    if (o.plum) {
+      // premium — spend real $PLUM (server-verified redeemable credits)
+      if (!LS.P2E || !LS.P2E.isLive || !LS.P2E.isLive()) { toast('Connect your wallet (Wallet tab) to spend $PLUM', 'error'); return; }
+      const r = await LS.P2E.spend(o.plum, 'outfit:' + o.id);
+      if (!r || !r.ok) { toast(r && r.reason === 'insufficient' ? 'Not enough 💎 $PLUM' : 'Could not buy', 'error'); return; }
+      if (typeof r.balance === 'number') state.player.lsc = r.balance;
+    } else {
+      if ((sim.money || 0) < o.price) { toast('Not enough ₱ — earn more by playing', 'error'); return; }
+      sim.money = Math.round((sim.money || 0) - o.price);
+    }
     sim.wardrobe = sim.wardrobe || []; if (sim.wardrobe.indexOf(id) < 0) sim.wardrobe.push(id);
     sim.outfitColor = o.color; LS.save(state);
-    renderWardrobe(); refreshSimCards();
-    toast('Bought & wearing ' + o.name + ' 👕', 'success');
+    renderWardrobe(); refreshSimCards(); renderTopbar();
+    toast('Bought & wearing ' + o.name + (o.plum ? ' 💎' : ' 👕'), 'success');
   }
 
   // ---------------- RENDER: QUESTS ----------------

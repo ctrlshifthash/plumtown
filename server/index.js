@@ -489,6 +489,22 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, credited: plan.amount, tier, rewards: publicRewards(r, now) });
     }
 
+    // Spend redeemable $PLUM credits on in-game content (store, pets, expansions, featured listings).
+    if (path === '/api/spend' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const amount = Math.floor(Number(b.amount));
+      const reason = String(b.reason || 'purchase').slice(0, 48);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return send(res, 200, { ok: false, reason: 'bad_amount' });
+      const r = await db.getRewards(me.id);
+      if ((r.balance || 0) < amount) return send(res, 200, { ok: false, reason: 'insufficient', balance: Math.floor(r.balance || 0) });
+      r.balance = (r.balance || 0) - amount;
+      r.spent = (r.spent || 0) + amount;
+      await db.saveRewards(me.id, r);
+      return send(res, 200, { ok: true, spent: amount, balance: Math.floor(r.balance), reason });
+    }
+
     // Link a wallet (non-custodial) after proving ownership by signature.
     if (path === '/api/wallet/link' && req.method === 'POST') {
       const me = await db.byKey(req.headers['x-api-key']);
