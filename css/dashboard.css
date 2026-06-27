@@ -745,6 +745,13 @@
 .p2e-credits b { font-size: 30px; font-family: var(--font-display); color: var(--text); }
 .p2e-credits span { color: var(--text-faint); font-size: 13px; }
 .p2e-approx { color: #2ee6a6; font-weight: 600; font-size: 14px; }
+.p2e-tier { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--radius); border: 2px solid var(--border-ink); margin-bottom: 14px; background: var(--surface); box-shadow: 0 3px 0 var(--border-2); }
+.p2e-tier.ok { background: rgba(46,230,166,0.12); border-color: rgba(46,230,166,0.4); }
+.p2e-tier.locked { background: rgba(255,170,80,0.10); }
+.p2e-tier .pt-icon { font-size: 26px; line-height: 1; }
+.p2e-tier .pt-info { flex: 1; min-width: 0; }
+.p2e-tier .pt-info b { display: block; font-family: var(--font-display); color: var(--text); font-size: 14px; }
+.p2e-tier .pt-info small { color: var(--text-faint); font-size: 12px; }
 .p2e-walletrow { margin-bottom: 12px; }
 .p2e-wallet { display: flex; align-items: center; gap: 10px; font-size: 13px; font-family: var(--font-display); }
 .p2e-wallet code { background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 6px; }

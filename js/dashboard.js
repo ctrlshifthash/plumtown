@@ -369,8 +369,18 @@
     const dp = asset === 'USDC' ? 4 : 6;
     const bal = r.balance || 0;
     const min = c.minWithdraw || 0;
-    const canWithdraw = !!r.wallet && c.payoutsLive && bal >= min;
-    _p2eState = { wallet: r.wallet, bal: bal, min: min, live: !!c.payoutsLive };
+    const tier = data.tier || {};
+    const minHold = (tier.minPct != null ? tier.minPct : (c.minHoldPct != null ? c.minHoldPct : 0.5));
+    const canWithdraw = !!r.wallet && c.payoutsLive && tier.eligible && bal >= min;
+    _p2eState = { wallet: r.wallet, bal: bal, min: min, live: !!c.payoutsLive, eligible: !!tier.eligible, minHold: minHold };
+
+    const tierRow =
+      '<div class="p2e-tier ' + (tier.eligible ? 'ok' : 'locked') + '">' +
+        '<span class="pt-icon">' + escapeHtml(tier.icon || '🔌') + '</span>' +
+        '<div class="pt-info"><b>' + escapeHtml(tier.name || 'Holder tier') + (tier.eligible ? ' · ' + tier.mult + '× rewards' : '') + '</b>' +
+          '<small>' + (tier.pct != null ? 'You hold ' + Number(tier.pct).toFixed(2) + '% of $PLUM supply' : 'Hold ' + minHold + '% of $PLUM to start earning SOL') + '</small></div>' +
+        (tier.eligible ? '' : '<a class="btn btn-ghost btn-sm" href="https://pump.fun/coin/5jXuVv7KfWmjCf7PAB1cNXbNieP1fno6eWZDVBLppump" target="_blank" rel="noopener">Buy $PLUM ↗</a>') +
+      '</div>';
 
     const walletRow = r.wallet
       ? '<div class="p2e-wallet connected">🟢 <code>' + escapeHtml(r.wallet.slice(0, 6) + '…' + r.wallet.slice(-4)) + '</code>' +
@@ -385,11 +395,13 @@
         '<div class="p2e-credits"><b>' + num(bal) + '</b> <span>credits</span></div>' +
         '<div class="p2e-approx">≈ ' + (bal / perUnit).toFixed(dp) + ' ' + asset + ' redeemable</div>' +
       '</div>' +
+      tierRow +
       '<div class="p2e-walletrow">' + walletRow + '</div>' +
       '<button class="btn btn-primary btn-block" id="p2eWithdraw">' +
         (!r.wallet ? '🔗 Connect a wallet to withdraw'
-          : (bal < min ? 'Withdraw — need ' + num(min) + ' credits'
-            : '💸 Withdraw ' + (bal / perUnit).toFixed(dp) + ' ' + asset)) +
+          : (!tier.eligible ? '🔒 Hold ' + minHold + '% $PLUM to withdraw'
+            : (bal < min ? 'Withdraw — need ' + num(min) + ' credits'
+              : '💸 Withdraw ' + (bal / perUnit).toFixed(dp) + ' ' + asset))) +
       '</button>' +
       '<div class="p2e-meta"><span>Min ' + num(min) + '</span><span>·</span>' +
         '<span>Daily cap ' + num(c.dailyWithdrawCap || 0) + '</span><span>·</span>' +
@@ -434,6 +446,7 @@
     // Friendly, specific guidance instead of a dead/disabled button.
     const s = _p2eState || {};
     if (!s.wallet) { toast('Connect your Phantom wallet first — use the button just above ↑', 'error'); return; }
+    if (!s.eligible) { toast('Hold at least ' + (s.minHold || 0.5) + '% of $PLUM to cash out SOL — grab some $PLUM to unlock 🌳', 'error'); return; }
     if ((s.bal || 0) < (s.min || 0)) {
       toast('You need ' + num(s.min || 0) + ' credits to cash out — you have ' + num(s.bal || 0) + '. Keep playing to earn more! 🎮', '');
       return;
@@ -461,7 +474,8 @@
       cooldown: 'please wait a moment and retry', treasury_insufficient: 'treasury is low — try later',
       in_progress: 'a withdrawal is already processing', offline: 'this needs the backend',
       daily_cap: 'daily earn cap reached', bad_signature: 'signature rejected', bad_address: 'invalid wallet',
-      network: 'network error', no_wallet_found: 'no wallet detected'
+      network: 'network error', no_wallet_found: 'no wallet detected',
+      tier_locked: 'hold enough $PLUM to unlock SOL rewards'
     })[reason] || (reason || 'error');
   }
 

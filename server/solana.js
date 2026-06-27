@@ -40,6 +40,10 @@ const USDC_MINT = env.P2E_REWARD_MINT || (
     : '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'   // devnet USDC (circle test)
 );
 
+// The $PLUM token — players must hold a share of its supply to earn real SOL
+// (holder tiers, see economy.js). Defaults to the live pump.fun mint.
+const PLUM_MINT = env.P2E_PLUM_MINT || '5jXuVv7KfWmjCf7PAB1cNXbNieP1fno6eWZDVBLppump';
+
 /* ---------------- treasury keypair (private!) ---------------- */
 
 function loadTreasury() {
@@ -118,6 +122,27 @@ async function treasuryBalanceLamports() {
   return connection().getBalance(t.publicKey);
 }
 
+/* ---------------- $PLUM holdings (drives holder tiers) ---------------- */
+// What % of the total $PLUM supply does this wallet hold? Returns null if it
+// can't be determined (libs missing / RPC error) so callers stay conservative.
+async function holderPct(wallet) {
+  if (!web3 || !wallet) return null;
+  try {
+    const owner = new web3.PublicKey(wallet);
+    const mint = new web3.PublicKey(PLUM_MINT);
+    const conn = connection();
+    const [supply, accs] = await Promise.all([
+      conn.getTokenSupply(mint),
+      conn.getParsedTokenAccountsByOwner(owner, { mint })
+    ]);
+    const total = Number(supply.value.uiAmount || 0);
+    if (!total) return 0;
+    let held = 0;
+    accs.value.forEach((a) => { held += Number(a.account.data.parsed.info.tokenAmount.uiAmount || 0); });
+    return (held / total) * 100;
+  } catch (e) { return null; }
+}
+
 /* ---------------- payouts ---------------- */
 // Send `base` units (lamports for SOL, micro-USDC for USDC) to `toAddress`.
 // Returns { ok, signature } or { ok:false, error }.
@@ -171,8 +196,8 @@ async function payoutUSDC(toAddress, microUsdc) {
 }
 
 module.exports = {
-  available, status, canVerify, loadError, NETWORK, REWARD_ASSET, USDC_MINT,
-  treasuryAddress, treasuryBalanceLamports,
+  available, status, canVerify, loadError, NETWORK, REWARD_ASSET, USDC_MINT, PLUM_MINT,
+  treasuryAddress, treasuryBalanceLamports, holderPct,
   verifyWalletSignature, isValidAddress,
   payout, explorerTx
 };

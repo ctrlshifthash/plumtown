@@ -57,6 +57,26 @@ const CONFIG = {
 };
 
 /* ----------------------------------------------------------------
+   $PLUM HOLDER TIERS — you must hold a share of the token supply to
+   earn real SOL, and bigger holders earn at a higher multiplier.
+   Holdings are checked on-chain (see solana.js holderPct).
+   ---------------------------------------------------------------- */
+const MIN_HOLD_PCT = numEnv('P2E_MIN_HOLD_PCT', 0.5);
+const TIERS = [
+  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 3.5, mult: 3.5 },
+  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 3.0, mult: 3.0 },
+  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 2.0, mult: 2.0 },
+  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 1.0, mult: 1.5 },
+  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.5, mult: 1.0 }
+];
+// Resolve a holding % into a tier. null = unknown (not eligible).
+function tierFor(pct) {
+  if (pct == null) return { key: 'unverified', name: 'Connect wallet to verify', icon: '🔌', minPct: MIN_HOLD_PCT, mult: 0, eligible: false, pct: null };
+  for (const t of TIERS) if (pct >= t.minPct) return Object.assign({}, t, { eligible: true, pct: pct });
+  return { key: 'locked', name: 'Hold ' + MIN_HOLD_PCT + '% of $PLUM to earn', icon: '🔒', minPct: MIN_HOLD_PCT, mult: 0, eligible: false, pct: pct };
+}
+
+/* ----------------------------------------------------------------
    Reward schedule — the ONLY events that mint redeemable credits.
    Unknown keys are worth 0. One-time events mint once per account;
    "daily" is the single recurring faucet (24h-gated).
@@ -108,7 +128,7 @@ function creditKey(kind, key, tag) {
 // Decide whether a reported achievement may mint credits, and how many
 // (after applying the per-day earn cap). Pure — returns a plan; the
 // caller mutates storage. Never throws.
-function planCredit(rewards, kind, key, tag, now) {
+function planCredit(rewards, kind, key, tag, now, mult) {
   const r = rewards || blankRewards();
   const today = dayStamp(now);
   const earnedToday = r.earnDay === today ? (r.earnedToday || 0) : 0;
@@ -128,6 +148,10 @@ function planCredit(rewards, kind, key, tag, now) {
 
   let amount = eventReward(kind, key);
   if (amount <= 0) return { ok: false, amount: 0, reason: 'no_reward' };
+
+  // Holder-tier multiplier — 0× means not holding enough $PLUM, so nothing mints.
+  amount = Math.floor(amount * (mult == null ? 1 : mult));
+  if (amount <= 0) return { ok: false, amount: 0, reason: 'tier_locked' };
 
   // Per-day earn cap across all sources.
   const room = Math.max(0, CONFIG.dailyEarnCap - earnedToday);
@@ -208,5 +232,6 @@ function publicConfig() {
 module.exports = {
   CONFIG, QUEST_RC, MILESTONE_RC,
   blankRewards, dayStamp, eventReward, creditKey,
-  planCredit, planWithdraw, creditsToBase, dailyPoolBase, publicConfig
+  planCredit, planWithdraw, creditsToBase, dailyPoolBase, publicConfig,
+  TIERS, tierFor, MIN_HOLD_PCT
 };

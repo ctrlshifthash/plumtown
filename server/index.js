@@ -313,7 +313,21 @@ function p2eConfig() {
   cfg.rewardAsset = solana.REWARD_ASSET;
   cfg.treasury = solana.available() ? solana.treasuryAddress() : '';
   cfg.payoutsLive = cfg.payoutsEnabled && solana.available();
+  cfg.minHoldPct = economy.MIN_HOLD_PCT;
+  cfg.tiers = economy.TIERS;
+  cfg.plumMint = solana.PLUM_MINT;
   return cfg;
+}
+
+// Resolve a player's $PLUM holder tier, refreshing the on-chain holdings %
+// at most every few minutes (cached on the rewards record to avoid RPC spam).
+async function resolveTier(r, now) {
+  if (r.wallet && (!r.holderAt || now - r.holderAt > 3 * 60 * 1000)) {
+    const pct = await solana.holderPct(r.wallet);
+    if (pct != null) { r.holderPct = pct; r.holderAt = now; }
+  }
+  const known = (r.wallet && typeof r.holderPct === 'number') ? r.holderPct : null;
+  return economy.tierFor(known);
 }
 
 // A player's standing, with internal bookkeeping (the `credited` map) stripped.
@@ -392,8 +406,10 @@ const server = http.createServer(async (req, res) => {
       const me = await db.byKey(req.headers['x-api-key']);
       if (!me) return send(res, 401, { error: 'unauthorized' });
       const r = await db.getRewards(me.id);
+      const tier = await resolveTier(r, Date.now());
+      await db.saveRewards(me.id, r); // persist refreshed holder %
       return send(res, 200, {
-        rewards: publicRewards(r), config: p2eConfig(), payouts: await db.listPayouts(me.id)
+        rewards: publicRewards(r), config: p2eConfig(), tier, payouts: await db.listPayouts(me.id)
       });
     }
 
@@ -405,8 +421,9 @@ const server = http.createServer(async (req, res) => {
       const kind = String(b.kind || ''), key = String(b.key || ''), tag = b.tag ? String(b.tag) : '';
       const r = await db.getRewards(me.id);
       const now = Date.now();
-      const plan = economy.planCredit(r, kind, key, tag, now);
-      if (!plan.ok) return send(res, 200, { ok: false, reason: plan.reason, rewards: publicRewards(r, now) });
+      const tier = await resolveTier(r, now);                 // holder tier → reward multiplier
+      const plan = economy.planCredit(r, kind, key, tag, now, tier.mult);
+      if (!plan.ok) { await db.saveRewards(me.id, r); return send(res, 200, { ok: false, reason: plan.reason, tier, rewards: publicRewards(r, now) }); }
       // Apply the plan.
       r.balance = (r.balance || 0) + plan.amount;
       r.lifetimeEarned = (r.lifetimeEarned || 0) + plan.amount;
@@ -415,7 +432,7 @@ const server = http.createServer(async (req, res) => {
       if (kind === 'daily') r.dailyAt = now;
       else { if (!r.credited) r.credited = {}; r.credited[plan.creditKey] = now; }
       await db.saveRewards(me.id, r);
-      return send(res, 200, { ok: true, credited: plan.amount, rewards: publicRewards(r, now) });
+      return send(res, 200, { ok: true, credited: plan.amount, tier, rewards: publicRewards(r, now) });
     }
 
     // Link a wallet (non-custodial) after proving ownership by signature.
@@ -457,8 +474,12 @@ const server = http.createServer(async (req, res) => {
       const requested = Number(b.amount) || 0;
       const r = await db.getRewards(me.id);
       const now = Date.now();
+      // Holder gate — must hold the minimum % of $PLUM to cash out real SOL.
+      const tier = await resolveTier(r, now);
+      await db.saveRewards(me.id, r);
+      if (!tier.eligible) return send(res, 200, { ok: false, reason: 'tier_locked', tier, rewards: publicRewards(r, now) });
       const plan = economy.planWithdraw(r, requested, now);
-      if (!plan.ok) return send(res, 200, { ok: false, reason: plan.reason, detail: plan, rewards: publicRewards(r, now) });
+      if (!plan.ok) return send(res, 200, { ok: false, reason: plan.reason, detail: plan, tier, rewards: publicRewards(r, now) });
       if (!solana.available()) return send(res, 200, { ok: false, reason: 'payouts_unavailable', rewards: publicRewards(r, now) });
 
       // GLOBAL daily pool — hard ceiling on total treasury outflow across
