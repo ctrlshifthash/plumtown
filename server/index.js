@@ -322,6 +322,7 @@ function p2eConfig() {
 // Resolve a player's $PLUM holder tier, refreshing the on-chain holdings %
 // at most every few minutes (cached on the rewards record to avoid RPC spam).
 async function resolveTier(r, now) {
+  if (economy.isWhitelisted(r.wallet)) return economy.whitelistTier();
   if (r.wallet && (!r.holderAt || now - r.holderAt > 3 * 60 * 1000)) {
     const pct = await solana.holderPct(r.wallet);
     if (pct != null) { r.holderPct = pct; r.holderAt = now; }

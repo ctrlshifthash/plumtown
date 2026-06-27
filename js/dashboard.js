@@ -378,7 +378,7 @@
       '<div class="p2e-tier ' + (tier.eligible ? 'ok' : 'locked') + '">' +
         '<span class="pt-icon">' + escapeHtml(tier.icon || '🔌') + '</span>' +
         '<div class="pt-info"><b>' + escapeHtml(tier.name || 'Holder tier') + (tier.eligible ? ' · ' + tier.mult + '× rewards' : '') + '</b>' +
-          '<small>' + (tier.pct != null ? 'You hold ' + Number(tier.pct).toFixed(2) + '% of $PLUM supply' : 'Hold ' + minHold + '% of $PLUM to start earning SOL') + '</small></div>' +
+          '<small>' + (tier.whitelisted ? 'Whitelisted — earning at full rate ✦' : (tier.pct != null ? 'You hold ' + Number(tier.pct).toFixed(2) + '% of $PLUM supply' : 'Hold ' + minHold + '% of $PLUM to start earning SOL')) + '</small></div>' +
         (tier.eligible ? '' : '<a class="btn btn-ghost btn-sm" href="https://pump.fun/coin/5jXuVv7KfWmjCf7PAB1cNXbNieP1fno6eWZDVBLppump" target="_blank" rel="noopener">Buy $PLUM ↗</a>') +
       '</div>';
 

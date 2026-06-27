@@ -63,12 +63,18 @@ const CONFIG = {
    ---------------------------------------------------------------- */
 const MIN_HOLD_PCT = numEnv('P2E_MIN_HOLD_PCT', 0.1);
 const TIERS = [
-  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 1.0,  mult: 3.5 },
-  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 0.75, mult: 3.0 },
-  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 0.5,  mult: 2.0 },
-  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 0.25, mult: 1.5 },
-  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.1,  mult: 1.0 }
+  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 0.9, mult: 3.5 },
+  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 0.7, mult: 3.0 },
+  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 0.5, mult: 2.0 },
+  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 0.3, mult: 1.5 },
+  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.1, mult: 1.0 }
 ];
+// Wallets that bypass the holder requirement entirely (always top tier) — for
+// the team / testing. Override via P2E_TIER_WHITELIST (comma-separated).
+const DEFAULT_WHITELIST = ['7tCxgfrk2R6FQ7eRsSdCkzegtEWfm4maAz8E2KuYeTbs'];
+const WHITELIST = new Set((env.P2E_TIER_WHITELIST ? env.P2E_TIER_WHITELIST.split(',') : DEFAULT_WHITELIST).map((s) => s.trim()).filter(Boolean));
+function isWhitelisted(wallet) { return !!wallet && WHITELIST.has(wallet); }
+function whitelistTier() { return Object.assign({}, TIERS[0], { eligible: true, pct: null, whitelisted: true, name: 'Plum Lord · whitelisted' }); }
 // Resolve a holding % into a tier. null = unknown (not eligible).
 function tierFor(pct) {
   if (pct == null) return { key: 'unverified', name: 'Connect wallet to verify', icon: '🔌', minPct: MIN_HOLD_PCT, mult: 0, eligible: false, pct: null };
@@ -233,5 +239,5 @@ module.exports = {
   CONFIG, QUEST_RC, MILESTONE_RC,
   blankRewards, dayStamp, eventReward, creditKey,
   planCredit, planWithdraw, creditsToBase, dailyPoolBase, publicConfig,
-  TIERS, tierFor, MIN_HOLD_PCT
+  TIERS, tierFor, MIN_HOLD_PCT, isWhitelisted, whitelistTier
 };
