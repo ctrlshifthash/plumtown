@@ -704,6 +704,35 @@
 /* ---- in-game music button ---- */
 #musicBtn.on { background: var(--plumbob-soft); color: #0e3d23; }
 
+/* ---- Marketplace ---- */
+.market-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+@media (max-width: 820px) { .market-wrap { grid-template-columns: 1fr; } }
+.market-sell { position: sticky; top: 12px; }
+.market-hint { font-size: 12px; color: var(--text-faint); margin: 0 0 12px; }
+.market-inv { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 14px; }
+.market-inv-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 9px 11px; border: 2px solid var(--border-ink); border-radius: var(--radius); background: var(--surface); box-shadow: 0 3px 0 var(--border-2); cursor: pointer; font-family: var(--font-display); color: var(--text); transition: filter .12s; }
+.market-inv-item:hover { filter: brightness(1.03); }
+.market-inv-item.selected { background: var(--plumbob-soft); color: #0e3d23; border-color: var(--plumbob-deep); }
+.mii-icon { font-size: 20px; }
+.mii-name { flex: 1; font-weight: 700; font-size: 14px; }
+.mii-qty { font-family: var(--font-pixel); font-size: 10px; color: var(--text-faint); }
+.market-inv-item.selected .mii-qty { color: #0e3d23; }
+.market-sell-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.market-sell-form input { flex: 1; min-width: 0; padding: 9px 11px; border: 2px solid var(--border-ink); border-radius: var(--radius); background: var(--surface); color: var(--text); font-family: var(--font-display); }
+.market-earn { font-size: 13px; color: var(--text); }
+.me-bal { font-family: var(--font-display); }
+.me-earn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 2px solid var(--border); }
+.market-empty-sm { font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+.market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.market-empty { grid-column: 1 / -1; text-align: center; color: var(--text-faint); padding: 40px 0; font-family: var(--font-display); }
+.market-card { background: var(--surface); border: 2px solid var(--border-ink); border-radius: var(--radius); box-shadow: 0 4px 0 var(--border-2); padding: 14px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.market-card.mine { border-color: var(--plumbob-deep); }
+.mc-icon { font-size: 38px; line-height: 1.1; }
+.mc-name { font-family: var(--font-display); font-weight: 800; color: var(--text); font-size: 15px; }
+.mc-seller { font-family: var(--font-pixel); font-size: 9px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.mc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: auto; }
+.mc-price { font-family: var(--font-display); font-weight: 800; color: var(--plumbob-deep); font-size: 16px; }
+
 /* ---- P2E: redeemable rewards (real Solana payouts) ---- */
 .p2e-panel { margin-top: 18px; }
 .p2e-panel .panel-head h3 { display: flex; align-items: center; gap: 8px; }

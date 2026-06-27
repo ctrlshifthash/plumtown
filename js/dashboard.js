@@ -58,6 +58,7 @@
     if (name === 'quests') renderQuestsFull();
     if (name === 'wallet') renderWallet();
     if (name === 'community') { renderCommunity(); startChatPoll(); } else { stopChatPoll(); }
+    if (name === 'market') renderMarket();
     if (name === 'settings') renderSettings();
     $('#sidebar').classList.remove('open');
   }
@@ -767,6 +768,111 @@
   }
 
   // ---------------- EVENTS ----------------
+  // ---------------- MARKET ----------------
+  let marketSel = null; // selected inventory itemId to sell
+
+  function marketActiveSim() {
+    return (state.activeSimId && state.sims.find((s) => s.id === state.activeSimId)) || state.sims[0] || null;
+  }
+  function marketInvCounts() {
+    const map = {};
+    (state.inventory || []).forEach((id) => { map[id] = (map[id] || 0) + 1; });
+    return map;
+  }
+  function renderMarketInventory() {
+    const wrap = $('#marketInv'); if (!wrap) return;
+    const counts = marketInvCounts();
+    const ids = Object.keys(counts);
+    if (!ids.length) { wrap.innerHTML = '<div class="market-empty-sm">Nothing to sell yet. Buy furniture in-game (Build → Shop), then resell spares here.</div>'; marketSel = null; return; }
+    if (marketSel && !counts[marketSel]) marketSel = null;
+    wrap.innerHTML = ids.map((id) => {
+      const item = (LS.Build && LS.Build.byId) ? LS.Build.byId(id) : null;
+      const name = item ? item.name : id;
+      const icon = item ? item.icon : '📦';
+      return '<button class="market-inv-item' + (marketSel === id ? ' selected' : '') + '" data-id="' + escapeHtml(id) + '">' +
+        '<span class="mii-icon">' + escapeHtml(icon) + '</span>' +
+        '<span class="mii-name">' + escapeHtml(name) + '</span>' +
+        '<span class="mii-qty">×' + counts[id] + '</span></button>';
+    }).join('');
+  }
+  function renderMarketEarn(amount) {
+    const el = $('#marketEarn'); if (!el) return;
+    const sim = marketActiveSim();
+    const bal = sim ? Math.round(sim.money || 0) : 0;
+    el.innerHTML = '<div class="me-bal">Your wallet: <b>₱' + num(bal) + '</b></div>' +
+      (amount > 0 ? '<div class="me-earn">💰 Sales waiting: <b>₱' + num(amount) + '</b><button class="btn btn-primary btn-sm" id="marketCollect">Collect</button></div>' : '');
+  }
+  async function renderMarket() {
+    renderMarketInventory();
+    const grid = $('#marketGrid');
+    if (grid) grid.innerHTML = '<div class="market-empty">Loading the market…</div>';
+    let data = { listings: [], earnings: 0, me: null };
+    try { data = await LS.Cloud.getMarket(120); } catch (e) { /* */ }
+    renderMarketEarn(data.earnings || 0);
+    if (!grid) return;
+    grid.innerHTML = (data.listings && data.listings.length) ? data.listings.map((l) => {
+      const mine = l.sellerId && data.me && l.sellerId === data.me;
+      return '<div class="market-card' + (mine ? ' mine' : '') + '">' +
+        '<div class="mc-icon">' + escapeHtml(l.itemIcon || '📦') + '</div>' +
+        '<div class="mc-name">' + escapeHtml(l.itemName || l.itemId) + '</div>' +
+        '<div class="mc-seller">' + (mine ? 'Your listing' : 'by ' + escapeHtml(l.sellerName || '?')) + '</div>' +
+        '<div class="mc-foot"><span class="mc-price">₱' + num(l.price) + '</span>' +
+        (mine
+          ? '<button class="btn btn-ghost btn-sm mc-cancel" data-id="' + escapeHtml(l.id) + '">Cancel</button>'
+          : '<button class="btn btn-primary btn-sm mc-buy" data-id="' + escapeHtml(l.id) + '" data-item="' + escapeHtml(l.itemId) + '" data-price="' + l.price + '">Buy</button>') +
+        '</div></div>';
+    }).join('') : '<div class="market-empty">No listings yet — be the first to sell something! 🛒</div>';
+  }
+
+  async function marketList() {
+    if (!marketSel) { toast('Pick an item to sell first', 'error'); return; }
+    const priceEl = $('#marketPrice');
+    const price = Math.floor(Number(priceEl && priceEl.value));
+    if (!Number.isFinite(price) || price <= 0) { toast('Enter a price in ₱', 'error'); return; }
+    const inv = state.inventory || (state.inventory = []);
+    const idx = inv.indexOf(marketSel);
+    if (idx < 0) { toast('You no longer own that item', 'error'); renderMarket(); return; }
+    const item = (LS.Build && LS.Build.byId) ? LS.Build.byId(marketSel) : null;
+    const sel = marketSel;
+    inv.splice(idx, 1); // optimistic remove
+    const r = await LS.Cloud.listItem({ itemId: sel, itemName: item ? item.name : sel, itemIcon: item ? item.icon : '📦', price: price });
+    if (!r || !r.ok) { inv.push(sel); toast('Could not list that item', 'error'); renderMarket(); return; }
+    LS.save(state);
+    if (priceEl) priceEl.value = '';
+    marketSel = null;
+    toast('Listed for ₱' + num(price) + ' ✓', 'success');
+    renderMarket();
+  }
+  async function marketBuy(id, itemId, price) {
+    const sim = marketActiveSim();
+    if (!sim) { toast('Create a Sim first', 'error'); return; }
+    if ((sim.money || 0) < price) { toast('Not enough ₱ Plumbucks', 'error'); return; }
+    const r = await LS.Cloud.buyItem(id);
+    if (!r || !r.ok) { toast(r && r.reason === 'gone' ? 'Already sold!' : (r && r.reason === 'own' ? 'That is your own listing' : 'Could not buy'), 'error'); renderMarket(); return; }
+    const li = r.listing || {};
+    sim.money = Math.round((sim.money || 0) - (li.price || price));
+    (state.inventory = state.inventory || []).push(li.itemId || itemId);
+    LS.save(state);
+    toast('Bought ' + (li.itemName || 'item') + ' — check your inventory!', 'success');
+    renderMarket();
+  }
+  async function marketCancel(id) {
+    const r = await LS.Cloud.cancelListing(id);
+    if (!r || !r.ok) { toast('Could not cancel', 'error'); renderMarket(); return; }
+    const li = r.listing || {};
+    if (li.itemId) { (state.inventory = state.inventory || []).push(li.itemId); LS.save(state); }
+    toast('Listing cancelled — item returned', 'success');
+    renderMarket();
+  }
+  async function marketCollect() {
+    const r = await LS.Cloud.collectEarnings();
+    if (!r || !r.ok || !r.amount) { renderMarket(); return; }
+    const sim = marketActiveSim();
+    if (sim) { sim.money = Math.round((sim.money || 0) + r.amount); LS.save(state); }
+    toast('Collected ₱' + num(r.amount) + ' from sales! 💰', 'success');
+    renderMarket();
+  }
+
   function bind() {
     // sidebar nav
     $$('.side-link').forEach((l) => {
@@ -813,6 +919,20 @@
     // neighbourhood chat
     const cs = $('#chatSend'); if (cs) cs.addEventListener('click', sendChatMsg);
     const ct = $('#chatText'); if (ct) ct.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMsg(); } });
+
+    // marketplace
+    const mlb = $('#marketListBtn'); if (mlb) mlb.addEventListener('click', marketList);
+    const minv = $('#marketInv'); if (minv) minv.addEventListener('click', (e) => {
+      const b = e.target.closest('.market-inv-item'); if (!b) return;
+      marketSel = (marketSel === b.dataset.id) ? null : b.dataset.id; renderMarketInventory();
+    });
+    const mgrid = $('#marketGrid'); if (mgrid) mgrid.addEventListener('click', (e) => {
+      const buy = e.target.closest('.mc-buy');
+      if (buy) { marketBuy(buy.dataset.id, buy.dataset.item, Number(buy.dataset.price)); return; }
+      const cancel = e.target.closest('.mc-cancel');
+      if (cancel) marketCancel(cancel.dataset.id);
+    });
+    const mearn = $('#marketEarn'); if (mearn) mearn.addEventListener('click', (e) => { if (e.target.closest('#marketCollect')) marketCollect(); });
   }
 
   // ---------------- WELCOME / ONBOARDING ----------------
@@ -837,7 +957,7 @@
     renderOverview();
     // deep-link to a view via #hash (e.g. #howto); otherwise greet first-timers
     const hv = (location.hash || '').replace('#', '');
-    const views = ['overview', 'howitworks', 'sims', 'wallet', 'quests', 'community', 'settings'];
+    const views = ['overview', 'howitworks', 'sims', 'wallet', 'quests', 'community', 'market', 'settings'];
     if (views.indexOf(hv) >= 0) switchView(hv);
     else maybeShowWelcome();
     // refresh daily timer every second

@@ -27,6 +27,7 @@
       <a href="#" class="side-link" data-view="wallet"><span class="ic">💰</span> Wallet</a>
       <a href="#" class="side-link" data-view="quests"><span class="ic">🎯</span> Quests</a>
       <a href="#" class="side-link" data-view="community"><span class="ic">🌍</span> Community</a>
+      <a href="#" class="side-link" data-view="market"><span class="ic">🛒</span> Market</a>
       <a href="#" class="side-link" data-view="settings"><span class="ic">⚙️</span> Settings</a>
     </nav>
     <div class="side-foot">
@@ -240,6 +241,26 @@
           </div>
         </div>
         <div class="community-grid" id="communityGrid"></div>
+      </section>
+
+      <!-- MARKET VIEW -->
+      <section class="view" id="view-market">
+        <div class="view-head"><div><h1>🛒 Marketplace</h1><p>Buy &amp; sell furniture with other Plumtown players — paid in ₱ Plumbucks.</p></div></div>
+        <div class="market-wrap">
+          <aside class="market-sell panel">
+            <div class="panel-head"><h3>🏷️ Sell an item</h3></div>
+            <p class="market-hint">Pick an item from your inventory, set a price, and list it for everyone.</p>
+            <div class="market-inv" id="marketInv"></div>
+            <div class="market-sell-form">
+              <input id="marketPrice" type="number" min="1" step="1" placeholder="Price ₱" autocomplete="off" />
+              <button class="btn btn-primary btn-sm" id="marketListBtn">List for sale</button>
+            </div>
+            <div class="market-earn" id="marketEarn"></div>
+          </aside>
+          <div class="market-main">
+            <div class="market-grid" id="marketGrid"></div>
+          </div>
+        </div>
       </section>
 
       <!-- SETTINGS VIEW -->

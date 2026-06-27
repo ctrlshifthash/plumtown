@@ -48,6 +48,8 @@ function memoryStore() {
   const players = new Map(); // id -> { id, name, apiKey, summary, world, lastSeen }
   const messages = [];       // global neighbourhood chat: { id, playerId, name, text, at }
   let pool = { day: '', spent: 0 }; // global daily payout pool, in base units (lamports)
+  const listings = [];       // marketplace: { id, sellerId, sellerName, itemId, itemName, itemIcon, price, createdAt }
+  const earnings = new Map(); // sellerId -> pending ₱ from sales
   return {
     async init() {},
     async createPlayer(name) {
@@ -94,7 +96,19 @@ function memoryStore() {
     async listMessages(limit) { return messages.slice(-(limit || 50)); },
     // ---- global daily payout pool (treasury-wide cap) ----
     async poolSpentToday(now) { const d = economy.dayStamp(now); return pool.day === d ? pool.spent : 0; },
-    async addPoolSpend(base, now) { const d = economy.dayStamp(now); if (pool.day !== d) pool = { day: d, spent: 0 }; pool.spent += base; }
+    async addPoolSpend(base, now) { const d = economy.dayStamp(now); if (pool.day !== d) pool = { day: d, spent: 0 }; pool.spent += base; },
+    // ---- marketplace ----
+    async listMarket(limit) { return listings.slice(-(limit || 100)).reverse(); },
+    async addListing(sellerId, sellerName, item) {
+      const l = { id: uid(), sellerId, sellerName, itemId: item.itemId, itemName: item.itemName, itemIcon: item.itemIcon, price: item.price, createdAt: Date.now() };
+      listings.push(l); if (listings.length > 500) listings.splice(0, listings.length - 500);
+      return l;
+    },
+    async claimListing(id) { const i = listings.findIndex((l) => l.id === id); return i < 0 ? null : listings.splice(i, 1)[0]; },
+    async cancelListing(id, sellerId) { const i = listings.findIndex((l) => l.id === id && l.sellerId === sellerId); return i < 0 ? null : listings.splice(i, 1)[0]; },
+    async creditEarnings(sellerId, amount) { earnings.set(sellerId, (earnings.get(sellerId) || 0) + amount); },
+    async getEarnings(sellerId) { return earnings.get(sellerId) || 0; },
+    async collectEarnings(sellerId) { const a = earnings.get(sellerId) || 0; earnings.set(sellerId, 0); return a; }
   };
 }
 
@@ -116,6 +130,12 @@ function pgStore() {
         id text PRIMARY KEY, player_id text, name text, body text, created_at timestamptz DEFAULT now())`);
       await pool.query(`CREATE TABLE IF NOT EXISTS daily_pool (
         day text PRIMARY KEY, spent_base numeric DEFAULT 0)`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS market_listings (
+        id text PRIMARY KEY, seller_id text, seller_name text,
+        item_id text, item_name text, item_icon text, price numeric,
+        created_at timestamptz DEFAULT now())`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS market_earnings (
+        player_id text PRIMARY KEY, amount numeric DEFAULT 0)`);
     },
     async createPlayer(name) {
       const id = uid(), apiKey = key();
@@ -182,6 +202,42 @@ function pgStore() {
       await pool.query(
         'INSERT INTO daily_pool(day,spent_base) VALUES($1,$2) ON CONFLICT (day) DO UPDATE SET spent_base = daily_pool.spent_base + $2',
         [economy.dayStamp(now), base]);
+    },
+    // ---- marketplace ----
+    async listMarket(limit) {
+      const r = await pool.query('SELECT id,seller_id,seller_name,item_id,item_name,item_icon,price,created_at FROM market_listings ORDER BY created_at DESC LIMIT $1', [limit || 100]);
+      return r.rows.map((row) => ({ id: row.id, sellerId: row.seller_id, sellerName: row.seller_name, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price), createdAt: new Date(row.created_at).getTime() }));
+    },
+    async addListing(sellerId, sellerName, item) {
+      const id = uid(), now = Date.now();
+      await pool.query('INSERT INTO market_listings(id,seller_id,seller_name,item_id,item_name,item_icon,price) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        [id, sellerId, sellerName, item.itemId, item.itemName, item.itemIcon, item.price]);
+      return { id, sellerId, sellerName, itemId: item.itemId, itemName: item.itemName, itemIcon: item.itemIcon, price: item.price, createdAt: now };
+    },
+    async claimListing(id) {
+      const r = await pool.query('DELETE FROM market_listings WHERE id=$1 RETURNING id,seller_id,seller_name,item_id,item_name,item_icon,price', [id]);
+      if (!r.rows[0]) return null;
+      const row = r.rows[0];
+      return { id: row.id, sellerId: row.seller_id, sellerName: row.seller_name, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price) };
+    },
+    async cancelListing(id, sellerId) {
+      const r = await pool.query('DELETE FROM market_listings WHERE id=$1 AND seller_id=$2 RETURNING id,item_id,item_name,item_icon,price', [id, sellerId]);
+      if (!r.rows[0]) return null;
+      const row = r.rows[0];
+      return { id: row.id, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price) };
+    },
+    async creditEarnings(sellerId, amount) {
+      await pool.query('INSERT INTO market_earnings(player_id,amount) VALUES($1,$2) ON CONFLICT (player_id) DO UPDATE SET amount = market_earnings.amount + $2', [sellerId, amount]);
+    },
+    async getEarnings(sellerId) {
+      const r = await pool.query('SELECT amount FROM market_earnings WHERE player_id=$1', [sellerId]);
+      return r.rows[0] ? Number(r.rows[0].amount) : 0;
+    },
+    async collectEarnings(sellerId) {
+      const r = await pool.query('SELECT amount FROM market_earnings WHERE player_id=$1', [sellerId]);
+      const amt = r.rows[0] ? Number(r.rows[0].amount) : 0;
+      if (amt > 0) await pool.query('UPDATE market_earnings SET amount=0 WHERE player_id=$1', [sellerId]);
+      return amt;
     }
   };
 }
@@ -458,6 +514,52 @@ const server = http.createServer(async (req, res) => {
       if (!text) return send(res, 200, { ok: false, reason: 'empty' });
       const m = await db.addMessage(me.id, me.name, text);
       return send(res, 200, { ok: true, message: m });
+    }
+
+    /* ============ Marketplace (player-to-player furniture trading) ============ */
+    if (path === '/api/market' && req.method === 'GET') {
+      const limit = Math.min(200, parseInt(url.searchParams.get('limit'), 10) || 100);
+      const list = await db.listMarket(limit);
+      const meM = await db.byKey(req.headers['x-api-key']);
+      const earned = meM ? await db.getEarnings(meM.id) : 0;
+      return send(res, 200, { listings: list, earnings: earned, me: meM ? meM.id : null });
+    }
+    if (path === '/api/market/list' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const itemId = String(b.itemId || '').slice(0, 60);
+      const itemName = String(b.itemName || itemId || 'Item').slice(0, 60);
+      const itemIcon = String(b.itemIcon || '📦').slice(0, 8);
+      const price = Math.floor(Number(b.price));
+      if (!itemId) return send(res, 200, { ok: false, reason: 'no_item' });
+      if (!Number.isFinite(price) || price <= 0 || price > 10000000) return send(res, 200, { ok: false, reason: 'bad_price' });
+      const listing = await db.addListing(me.id, me.name, { itemId, itemName, itemIcon, price });
+      return send(res, 200, { ok: true, listing });
+    }
+    if (path === '/api/market/buy' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const listing = await db.claimListing(String(b.id || ''));   // atomic remove+return
+      if (!listing) return send(res, 200, { ok: false, reason: 'gone' });
+      if (listing.sellerId === me.id) { await db.addListing(listing.sellerId, listing.sellerName, listing); return send(res, 200, { ok: false, reason: 'own' }); }
+      await db.creditEarnings(listing.sellerId, listing.price);
+      return send(res, 200, { ok: true, listing });
+    }
+    if (path === '/api/market/cancel' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const listing = await db.cancelListing(String(b.id || ''), me.id);
+      if (!listing) return send(res, 200, { ok: false, reason: 'gone' });
+      return send(res, 200, { ok: true, listing });
+    }
+    if (path === '/api/market/collect' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const amount = await db.collectEarnings(me.id);
+      return send(res, 200, { ok: true, amount });
     }
 
     send(res, 404, { error: 'not found' });

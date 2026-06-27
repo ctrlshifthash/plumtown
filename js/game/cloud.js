@@ -142,6 +142,13 @@
     if (!r.ok) throw new Error('GET ' + path + ' ' + r.status);
     return r.json();
   }
+  async function apiGetAuth(path) {
+    const headers = {};
+    if (me()) headers['x-api-key'] = me().apiKey;
+    const r = await fetch(apiUrl(path), { headers });
+    if (!r.ok) throw new Error('GET ' + path + ' ' + r.status);
+    return r.json();
+  }
   async function apiPost(path, body, auth) {
     const headers = { 'Content-Type': 'application/json' };
     if (auth && me()) headers['x-api-key'] = me().apiKey;
@@ -248,10 +255,66 @@
     catch (e) { return null; }
   }
 
+  /* ---- marketplace (real backend, or local demo when offline) ---- */
+  const MARKET_KEY = 'lifesim_market_v1';
+  const EARN_KEY = 'lifesim_market_earn_v1';
+  function readMarketLocal() { try { return JSON.parse(localStorage.getItem(MARKET_KEY)) || null; } catch (e) { return null; } }
+  function writeMarketLocal(a) { try { localStorage.setItem(MARKET_KEY, JSON.stringify(a.slice(-200))); } catch (e) { /* */ } }
+  function seedMarket() {
+    const now = Date.now();
+    const cat = (LS.Build && LS.Build.CATALOG) ? LS.Build.CATALOG.slice() : [];
+    const names = ['Ava Rossi', 'Kai Okafor', 'Mia Chen', 'Noah Patel'];
+    const sample = cat.sort(() => Math.random() - 0.5).slice(0, 4);
+    return sample.map((it, i) => ({
+      id: LS.uid(), sellerId: 'npc_' + i, sellerName: names[i % names.length],
+      itemId: it.id, itemName: it.name, itemIcon: it.icon,
+      price: Math.max(20, Math.floor((it.cost || 100) * 0.6)), createdAt: now - (i + 1) * 120000
+    }));
+  }
+  function marketLocal() { let a = readMarketLocal(); if (!a) { a = seedMarket(); writeMarketLocal(a); } return a; }
+  function earnLocal() { try { return Number(localStorage.getItem(EARN_KEY)) || 0; } catch (e) { return 0; } }
+  function setEarnLocal(v) { try { localStorage.setItem(EARN_KEY, String(v)); } catch (e) { /* */ } }
+
+  async function getMarket(limit) {
+    if (!isRemote()) return { listings: marketLocal().slice().reverse().slice(0, limit || 100), earnings: earnLocal(), me: 'you' };
+    try { const d = await apiGetAuth('/market?limit=' + (limit || 100)); return { listings: d.listings || [], earnings: d.earnings || 0, me: d.me || null }; }
+    catch (e) { return { listings: [], earnings: 0, me: null }; }
+  }
+  async function listItem(item) {
+    if (!isRemote() || !me()) {
+      const a = marketLocal();
+      const l = { id: LS.uid(), sellerId: 'you', sellerName: (selfWorld().player.name || 'You'), itemId: item.itemId, itemName: item.itemName, itemIcon: item.itemIcon, price: item.price, createdAt: Date.now() };
+      a.push(l); writeMarketLocal(a); return { ok: true, listing: l };
+    }
+    try { return await apiPost('/market/list', item, true); } catch (e) { return { ok: false, reason: 'network' }; }
+  }
+  async function buyItem(id) {
+    if (!isRemote() || !me()) {
+      const a = marketLocal(); const i = a.findIndex((l) => l.id === id);
+      if (i < 0) return { ok: false, reason: 'gone' };
+      if (a[i].sellerId === 'you') return { ok: false, reason: 'own' };
+      const listing = a.splice(i, 1)[0]; writeMarketLocal(a); return { ok: true, listing };
+    }
+    try { return await apiPost('/market/buy', { id: id }, true); } catch (e) { return { ok: false, reason: 'network' }; }
+  }
+  async function cancelMarketListing(id) {
+    if (!isRemote() || !me()) {
+      const a = marketLocal(); const i = a.findIndex((l) => l.id === id && l.sellerId === 'you');
+      if (i < 0) return { ok: false, reason: 'gone' };
+      const listing = a.splice(i, 1)[0]; writeMarketLocal(a); return { ok: true, listing };
+    }
+    try { return await apiPost('/market/cancel', { id: id }, true); } catch (e) { return { ok: false, reason: 'network' }; }
+  }
+  async function collectEarnings() {
+    if (!isRemote() || !me()) { const amt = earnLocal(); setEarnLocal(0); return { ok: true, amount: amt }; }
+    try { return await apiPost('/market/collect', {}, true); } catch (e) { return { ok: false, reason: 'network' }; }
+  }
+
   LS.Cloud = {
     isRemote, me, signIn, signOut, publish, heartbeat,
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
+    getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, // marketplace
     listPlayersLocal, getWorldLocal, ensureSeeded, selfWorld, generateNeighborWorld, // local/test
     housePreviewHTML, summaryOf, worldSnapshot
   };
