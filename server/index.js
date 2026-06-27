@@ -72,7 +72,7 @@ function memoryStore() {
         .filter((p) => p.id === viewerId || (!p.private && !(p.blocked || []).includes(viewerId))) // privacy + blocklist
         .sort((a, b) => b.lastSeen - a.lastSeen)
         .slice(0, 200)
-        .map((p) => Object.assign({ id: p.id, name: p.name, lastSeen: p.lastSeen, online: Date.now() - p.lastSeen < ONLINE_WINDOW_MS, private: !!p.private }, p.summary));
+        .map((p) => Object.assign({ id: p.id, name: p.name, lastSeen: p.lastSeen, online: Date.now() - p.lastSeen < ONLINE_WINDOW_MS, private: !!p.private, tier: (p.rewards && p.rewards.tierKey) || null }, p.summary));
     },
     async getWorld(id, viewerId) {
       const p = players.get(id); if (!p) return null;
@@ -101,8 +101,8 @@ function memoryStore() {
     },
     async listPayouts(id) { const p = players.get(id); return (p && p.payouts) ? p.payouts : []; },
     // ---- neighbourhood chat ----
-    async addMessage(playerId, name, text) {
-      const m = { id: uid(), playerId, name, text, at: Date.now() };
+    async addMessage(playerId, name, text, tier) {
+      const m = { id: uid(), playerId, name, text, tier: tier || null, at: Date.now() };
       messages.push(m); if (messages.length > 200) messages.splice(0, messages.length - 200);
       return m;
     },
@@ -143,6 +143,7 @@ function pgStore() {
         base numeric, signature text, status text, created_at timestamptz DEFAULT now())`);
       await pool.query(`CREATE TABLE IF NOT EXISTS messages (
         id text PRIMARY KEY, player_id text, name text, body text, created_at timestamptz DEFAULT now())`);
+      await pool.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS tier text');
       await pool.query(`CREATE TABLE IF NOT EXISTS daily_pool (
         day text PRIMARY KEY, spent_base numeric DEFAULT 0)`);
       await pool.query(`CREATE TABLE IF NOT EXISTS market_listings (
@@ -166,13 +167,13 @@ function pgStore() {
     },
     async touch(id) { await pool.query('UPDATE players SET last_seen=now() WHERE id=$1', [id]); },
     async list(viewerId) {
-      const r = await pool.query('SELECT id,name,summary,last_seen,private,blocked FROM players WHERE world IS NOT NULL ORDER BY last_seen DESC LIMIT 300');
+      const r = await pool.query('SELECT id,name,summary,last_seen,private,blocked,rewards FROM players WHERE world IS NOT NULL ORDER BY last_seen DESC LIMIT 300');
       return r.rows
         .filter((row) => row.id === viewerId || (!row.private && !((row.blocked || []).includes(viewerId))))
         .slice(0, 200)
         .map((row) => {
           const seen = new Date(row.last_seen).getTime();
-          return Object.assign({ id: row.id, name: row.name, lastSeen: seen, online: Date.now() - seen < ONLINE_WINDOW_MS, private: !!row.private }, row.summary || {});
+          return Object.assign({ id: row.id, name: row.name, lastSeen: seen, online: Date.now() - seen < ONLINE_WINDOW_MS, private: !!row.private, tier: (row.rewards && row.rewards.tierKey) || null }, row.summary || {});
         });
     },
     async getWorld(id, viewerId) {
@@ -215,14 +216,14 @@ function pgStore() {
       }));
     },
     // ---- neighbourhood chat ----
-    async addMessage(playerId, name, text) {
+    async addMessage(playerId, name, text, tier) {
       const id = uid();
-      await pool.query('INSERT INTO messages(id,player_id,name,body) VALUES($1,$2,$3,$4)', [id, playerId, name, text]);
-      return { id, playerId, name, text, at: Date.now() };
+      await pool.query('INSERT INTO messages(id,player_id,name,body,tier) VALUES($1,$2,$3,$4,$5)', [id, playerId, name, text, tier || null]);
+      return { id, playerId, name, text, tier: tier || null, at: Date.now() };
     },
     async listMessages(limit) {
-      const r = await pool.query('SELECT id,player_id,name,body,created_at FROM messages ORDER BY created_at DESC LIMIT $1', [limit || 50]);
-      return r.rows.map((row) => ({ id: row.id, playerId: row.player_id, name: row.name, text: row.body, at: new Date(row.created_at).getTime() })).reverse();
+      const r = await pool.query('SELECT id,player_id,name,body,tier,created_at FROM messages ORDER BY created_at DESC LIMIT $1', [limit || 50]);
+      return r.rows.map((row) => ({ id: row.id, playerId: row.player_id, name: row.name, text: row.body, tier: row.tier || null, at: new Date(row.created_at).getTime() })).reverse();
     },
     // ---- global daily payout pool (treasury-wide cap) ----
     async poolSpentToday(now) {
@@ -353,13 +354,19 @@ function p2eConfig() {
 // Resolve a player's $PLUM holder tier, refreshing the on-chain holdings %
 // at most every few minutes (cached on the rewards record to avoid RPC spam).
 async function resolveTier(r, now) {
-  if (economy.isWhitelisted(r.wallet)) return economy.whitelistTier();
-  if (r.wallet && (!r.holderAt || now - r.holderAt > 3 * 60 * 1000)) {
-    const pct = await solana.holderPct(r.wallet);
-    if (pct != null) { r.holderPct = pct; r.holderAt = now; }
+  let tier;
+  if (economy.isWhitelisted(r.wallet)) {
+    tier = economy.whitelistTier();
+  } else {
+    if (r.wallet && (!r.holderAt || now - r.holderAt > 3 * 60 * 1000)) {
+      const pct = await solana.holderPct(r.wallet);
+      if (pct != null) { r.holderPct = pct; r.holderAt = now; }
+    }
+    const known = (r.wallet && typeof r.holderPct === 'number') ? r.holderPct : null;
+    tier = economy.tierFor(known);
   }
-  const known = (r.wallet && typeof r.holderPct === 'number') ? r.holderPct : null;
-  return economy.tierFor(known);
+  r.tierKey = tier.eligible ? tier.key : null; // cached so the badge shows in chat / community
+  return tier;
 }
 
 // A player's standing, with internal bookkeeping (the `credited` map) stripped.
@@ -580,7 +587,8 @@ const server = http.createServer(async (req, res) => {
       const b = await body(req);
       const text = String(b.text || '').replace(/\s+/g, ' ').trim().slice(0, 280);
       if (!text) return send(res, 200, { ok: false, reason: 'empty' });
-      const m = await db.addMessage(me.id, me.name, text);
+      const rw = await db.getRewards(me.id);
+      const m = await db.addMessage(me.id, me.name, text, rw && rw.tierKey);
       return send(res, 200, { ok: true, message: m });
     }
 

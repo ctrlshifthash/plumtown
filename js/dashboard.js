@@ -635,7 +635,7 @@
         <div class="cm-preview">${preview}<span class="cm-status ${p.online ? 'on' : 'off'}" title="${p.online ? 'Online' : 'Offline'}"></span></div>
         <div class="cm-body">
           ${av}
-          <div class="cm-info"><b>${escapeHtml(p.name)}${p.isYou ? ' <span class="cm-tag">You</span>' : ''}</b>
+          <div class="cm-info"><b>${(LS.Cloud.tierBadge && LS.Cloud.tierBadge(p.tier)) ? LS.Cloud.tierBadge(p.tier) + ' ' : ''}${escapeHtml(p.name)}${p.isYou ? ' <span class="cm-tag">You</span>' : ''}</b>
             <small>${status}</small>
             <small class="cm-sub">🪑 ${p.furniture || 0} items · ₱${num(p.houseValue || 0)}</small></div>
           <div class="cm-actions">
@@ -662,7 +662,8 @@
     log.innerHTML = msgs.length
       ? msgs.map((m) => {
           const mine = m.isYou || (myId && m.playerId === myId);
-          return `<div class="chat-msg${mine ? ' mine' : ''}"><span class="cmsg-name">${escapeHtml(m.name || '?')}</span><span class="cmsg-text">${escapeHtml(m.text)}</span><span class="cmsg-time">${timeAgo(new Date(m.at).toISOString())}</span></div>`;
+          const badge = (LS.Cloud.tierBadge && LS.Cloud.tierBadge(m.tier)) || '';
+          return `<div class="chat-msg${mine ? ' mine' : ''}"><span class="cmsg-name">${badge ? badge + ' ' : ''}${escapeHtml(m.name || '?')}</span><span class="cmsg-text">${escapeHtml(m.text)}</span><span class="cmsg-time">${timeAgo(new Date(m.at).toISOString())}</span></div>`;
         }).join('')
       : '<div class="chat-empty">No messages yet — say hi 👋</div>';
     if (atBottom) log.scrollTop = log.scrollHeight;

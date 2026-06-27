@@ -330,8 +330,12 @@
     try { return await apiPost('/market/collect', {}, true); } catch (e) { return { ok: false, reason: 'network' }; }
   }
 
+  // $PLUM holder-tier badge icons (key → emoji) shown in chat / community.
+  const TIER_ICONS = { lord: '👑', duke: '🏰', baron: '🏯', homestead: '🏡', orchard: '🌳', grove: '🍃', sapling: '🌿', sprout: '🌱' };
+  function tierBadge(key) { return (key && TIER_ICONS[key]) || ''; }
+
   LS.Cloud = {
-    isRemote, me, signIn, ensureSignedIn, signOut, publish, heartbeat,
+    isRemote, me, signIn, ensureSignedIn, signOut, publish, heartbeat, tierBadge,
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
     getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, // marketplace

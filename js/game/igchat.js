@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Plumtown — in-game Neighbourhood Chat
    A floating, collapsible chat widget on the play screen so players
    can talk while they play (not just from the dashboard). Uses the
@@ -50,8 +50,9 @@
     log.innerHTML = msgs.length
       ? msgs.map((m) => {
           const mine = m.isYou || (myId && m.playerId === myId);
+          const badge = (LS.Cloud.tierBadge && LS.Cloud.tierBadge(m.tier)) ? LS.Cloud.tierBadge(m.tier) + ' ' : '';
           return '<div class="chat-msg' + (mine ? ' mine' : '') + '">' +
-            '<span class="cmsg-name">' + esc(m.name || '?') + '</span>' +
+            '<span class="cmsg-name">' + badge + esc(m.name || '?') + '</span>' +
             '<span class="cmsg-text">' + esc(m.text) + '</span>' +
             '<span class="cmsg-time">' + ago(m.at) + '</span></div>';
         }).join('')
@@ -90,3 +91,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+// _b:7
