@@ -329,6 +329,14 @@
     if (!isRemote() || !me()) { const amt = earnLocal(); setEarnLocal(0); return { ok: true, amount: amt }; }
     try { return await apiPost('/market/collect', {}, true); } catch (e) { return { ok: false, reason: 'network' }; }
   }
+  async function featureMarketListing(id) {
+    if (!isRemote() || !me()) {
+      const a = marketLocal(); const l = a.find((x) => x.id === id && x.sellerId === 'you');
+      if (!l) return { ok: false, reason: 'not_yours' };
+      l.featured = Date.now(); writeMarketLocal(a); return { ok: true, listing: l };
+    }
+    try { return await apiPost('/market/feature', { id: id }, true); } catch (e) { return { ok: false, reason: 'network' }; }
+  }
 
   // $PLUM holder-tier badge icons (key → emoji) shown in chat / community.
   const TIER_ICONS = { lord: '👑', duke: '🏰', baron: '🏯', homestead: '🏡', orchard: '🌳', grove: '🍃', sapling: '🌿', sprout: '🌱' };
@@ -338,7 +346,7 @@
     isRemote, me, signIn, ensureSignedIn, signOut, publish, heartbeat, tierBadge,
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
-    getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, // marketplace
+    getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, featureListing: featureMarketListing, // marketplace
     setHouseControl, blockPlayer, unblockPlayer, setHousePrivate, // house visitor controls
     listPlayersLocal, getWorldLocal, ensureSeeded, selfWorld, generateNeighborWorld, // local/test
     housePreviewHTML, summaryOf, worldSnapshot

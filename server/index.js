@@ -111,10 +111,18 @@ function memoryStore() {
     async poolSpentToday(now) { const d = economy.dayStamp(now); return pool.day === d ? pool.spent : 0; },
     async addPoolSpend(base, now) { const d = economy.dayStamp(now); if (pool.day !== d) pool = { day: d, spent: 0 }; pool.spent += base; },
     // ---- marketplace ----
-    async listMarket(limit) { return listings.slice(-(limit || 100)).reverse(); },
+    async listMarket(limit) {
+      return listings.slice().sort((a, b) => ((b.featured || 0) - (a.featured || 0)) || (b.createdAt - a.createdAt)).slice(0, limit || 100);
+    },
     async addListing(sellerId, sellerName, item) {
-      const l = { id: uid(), sellerId, sellerName, itemId: item.itemId, itemName: item.itemName, itemIcon: item.itemIcon, price: item.price, createdAt: Date.now() };
+      const l = { id: uid(), sellerId, sellerName, itemId: item.itemId, itemName: item.itemName, itemIcon: item.itemIcon, price: item.price, createdAt: Date.now(), featured: 0 };
       listings.push(l); if (listings.length > 500) listings.splice(0, listings.length - 500);
+      return l;
+    },
+    async featureListing(id, sellerId) {
+      const l = listings.find((x) => x.id === id && x.sellerId === sellerId);
+      if (!l) return null;
+      l.featured = Date.now();
       return l;
     },
     async claimListing(id) { const i = listings.findIndex((l) => l.id === id); return i < 0 ? null : listings.splice(i, 1)[0]; },
@@ -150,6 +158,7 @@ function pgStore() {
         id text PRIMARY KEY, seller_id text, seller_name text,
         item_id text, item_name text, item_icon text, price numeric,
         created_at timestamptz DEFAULT now())`);
+      await pool.query('ALTER TABLE market_listings ADD COLUMN IF NOT EXISTS featured timestamptz');
       await pool.query(`CREATE TABLE IF NOT EXISTS market_earnings (
         player_id text PRIMARY KEY, amount numeric DEFAULT 0)`);
     },
@@ -237,8 +246,14 @@ function pgStore() {
     },
     // ---- marketplace ----
     async listMarket(limit) {
-      const r = await pool.query('SELECT id,seller_id,seller_name,item_id,item_name,item_icon,price,created_at FROM market_listings ORDER BY created_at DESC LIMIT $1', [limit || 100]);
-      return r.rows.map((row) => ({ id: row.id, sellerId: row.seller_id, sellerName: row.seller_name, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price), createdAt: new Date(row.created_at).getTime() }));
+      const r = await pool.query('SELECT id,seller_id,seller_name,item_id,item_name,item_icon,price,created_at,featured FROM market_listings ORDER BY featured DESC NULLS LAST, created_at DESC LIMIT $1', [limit || 100]);
+      return r.rows.map((row) => ({ id: row.id, sellerId: row.seller_id, sellerName: row.seller_name, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price), createdAt: new Date(row.created_at).getTime(), featured: !!row.featured }));
+    },
+    async featureListing(id, sellerId) {
+      const r = await pool.query('UPDATE market_listings SET featured=now() WHERE id=$1 AND seller_id=$2 RETURNING id,seller_id,seller_name,item_id,item_name,item_icon,price', [id, sellerId]);
+      if (!r.rows[0]) return null;
+      const row = r.rows[0];
+      return { id: row.id, sellerId: row.seller_id, sellerName: row.seller_name, itemId: row.item_id, itemName: row.item_name, itemIcon: row.item_icon, price: Number(row.price), featured: true };
     },
     async addListing(sellerId, sellerName, item) {
       const id = uid(), now = Date.now();
@@ -652,6 +667,20 @@ const server = http.createServer(async (req, res) => {
       if (!me) return send(res, 401, { error: 'unauthorized' });
       const amount = await db.collectEarnings(me.id);
       return send(res, 200, { ok: true, amount });
+    }
+    // Feature one of your listings (top placement) for a flat $PLUM fee.
+    if (path === '/api/market/feature' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const cost = 100; // $PLUM to feature a listing
+      const r = await db.getRewards(me.id);
+      if ((r.balance || 0) < cost) return send(res, 200, { ok: false, reason: 'insufficient', balance: Math.floor(r.balance || 0) });
+      const listing = await db.featureListing(String(b.id || ''), me.id);
+      if (!listing) return send(res, 200, { ok: false, reason: 'not_yours' });
+      r.balance = (r.balance || 0) - cost; r.spent = (r.spent || 0) + cost;
+      await db.saveRewards(me.id, r);
+      return send(res, 200, { ok: true, listing, cost, balance: Math.floor(r.balance) });
     }
 
     send(res, 404, { error: 'not found' });

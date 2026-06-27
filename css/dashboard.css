@@ -743,6 +743,10 @@
 .mc-seller { font-family: var(--font-pixel); font-size: 9px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .mc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: auto; }
 .mc-price { font-family: var(--font-display); font-weight: 800; color: var(--plumbob-deep); font-size: 16px; }
+.market-card { position: relative; }
+.market-card.featured { border-color: #e8b923; box-shadow: 0 0 0 2px rgba(232,185,35,0.3), 0 4px 0 var(--border-2); }
+.mc-feat { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #e8b923; color: #2a1c00; font-family: var(--font-pixel); font-size: 9px; letter-spacing: .04em; padding: 3px 9px; border-radius: 999px; border: 2px solid var(--border-ink); white-space: nowrap; }
+.mc-feature { padding: 6px 9px; }
 
 /* ---- Wardrobe / clothing shop ---- */
 .wardrobe-card { max-width: 560px; width: 92vw; }

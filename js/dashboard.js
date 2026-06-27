@@ -945,13 +945,14 @@
     if (!grid) return;
     grid.innerHTML = (data.listings && data.listings.length) ? data.listings.map((l) => {
       const mine = l.sellerId && data.me && l.sellerId === data.me;
-      return '<div class="market-card' + (mine ? ' mine' : '') + '">' +
+      return '<div class="market-card' + (mine ? ' mine' : '') + (l.featured ? ' featured' : '') + '">' +
+        (l.featured ? '<span class="mc-feat">⭐ Featured</span>' : '') +
         '<div class="mc-icon">' + escapeHtml(l.itemIcon || '📦') + '</div>' +
         '<div class="mc-name">' + escapeHtml(l.itemName || l.itemId) + '</div>' +
         '<div class="mc-seller">' + (mine ? 'Your listing' : 'by ' + escapeHtml(l.sellerName || '?')) + '</div>' +
         '<div class="mc-foot"><span class="mc-price">₱' + num(l.price) + '</span>' +
         (mine
-          ? '<button class="btn btn-ghost btn-sm mc-cancel" data-id="' + escapeHtml(l.id) + '">Cancel</button>'
+          ? ((l.featured ? '' : '<button class="btn btn-ghost btn-sm mc-feature" data-id="' + escapeHtml(l.id) + '" title="Feature for 💎100 $PLUM">⭐</button>') + '<button class="btn btn-ghost btn-sm mc-cancel" data-id="' + escapeHtml(l.id) + '">Cancel</button>')
           : '<button class="btn btn-primary btn-sm mc-buy" data-id="' + escapeHtml(l.id) + '" data-item="' + escapeHtml(l.itemId) + '" data-price="' + l.price + '">Buy</button>') +
         '</div></div>';
     }).join('') : '<div class="market-empty">No listings yet — be the first to sell something! 🛒</div>';
@@ -1004,6 +1005,14 @@
     if (sim) { sim.money = Math.round((sim.money || 0) + r.amount); LS.save(state); }
     toast('Collected ₱' + num(r.amount) + ' from sales! 💰', 'success');
     renderMarket();
+  }
+  async function marketFeature(id) {
+    if (!LS.P2E || !LS.P2E.isLive || !LS.P2E.isLive()) { toast('Connect your wallet (Wallet tab) to spend $PLUM', 'error'); return; }
+    const r = await LS.Cloud.featureListing(id);
+    if (!r || !r.ok) { toast(r && r.reason === 'insufficient' ? 'Not enough 💎 $PLUM (100 needed)' : 'Could not feature', 'error'); return; }
+    if (typeof r.balance === 'number') state.player.lsc = r.balance;
+    toast('Listing featured ⭐ — pinned to the top!', 'success');
+    renderMarket(); renderTopbar();
   }
 
   function bind() {
@@ -1062,6 +1071,8 @@
     const mgrid = $('#marketGrid'); if (mgrid) mgrid.addEventListener('click', (e) => {
       const buy = e.target.closest('.mc-buy');
       if (buy) { marketBuy(buy.dataset.id, buy.dataset.item, Number(buy.dataset.price)); return; }
+      const feat = e.target.closest('.mc-feature');
+      if (feat) { marketFeature(feat.dataset.id); return; }
       const cancel = e.target.closest('.mc-cancel');
       if (cancel) marketCancel(cancel.dataset.id);
     });
