@@ -145,7 +145,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); }
 .token-grid b { font-family: var(--font-display); color: var(--ink); }
 
 /* ---- Holder tiers ---- */
-.tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 8px; }
+.tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 8px; }
 @media (max-width: 900px) { .tier-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 520px) { .tier-grid { grid-template-columns: 1fr; } }
 .tier-card { position: relative; background: var(--paper); border: 3px solid var(--border-ink); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 22px 16px; text-align: center; color: var(--ink); }

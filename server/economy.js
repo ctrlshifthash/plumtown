@@ -63,11 +63,14 @@ const CONFIG = {
    ---------------------------------------------------------------- */
 const MIN_HOLD_PCT = numEnv('P2E_MIN_HOLD_PCT', 0.1);
 const TIERS = [
-  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 0.9, mult: 3.5 },
-  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 0.7, mult: 3.0 },
-  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 0.5, mult: 2.0 },
-  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 0.3, mult: 1.5 },
-  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.1, mult: 1.0 }
+  { key: 'lord',      name: 'Plum Lord',    icon: '👑', minPct: 3.0,  mult: 3.5 },
+  { key: 'duke',      name: 'Plum Duke',    icon: '🏰', minPct: 2.0,  mult: 3.0 },
+  { key: 'baron',     name: 'Plum Baron',   icon: '🏯', minPct: 1.5,  mult: 2.5 },
+  { key: 'homestead', name: 'Homesteader',  icon: '🏡', minPct: 1.0,  mult: 2.0 },
+  { key: 'orchard',   name: 'Orchardist',   icon: '🌳', minPct: 0.75, mult: 1.75 },
+  { key: 'grove',     name: 'Grove Keeper', icon: '🍃', minPct: 0.5,  mult: 1.5 },
+  { key: 'sapling',   name: 'Sapling',      icon: '🌿', minPct: 0.3,  mult: 1.25 },
+  { key: 'sprout',    name: 'Sprout',       icon: '🌱', minPct: 0.1,  mult: 1.0 }
 ];
 // Wallets that bypass the holder requirement entirely (always top tier) — for
 // the team / testing. Override via P2E_TIER_WHITELIST (comma-separated).
