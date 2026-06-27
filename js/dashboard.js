@@ -492,10 +492,35 @@
       const jb = $('#joinBtn'); if (jb) jb.addEventListener('click', doJoin);
       const ji = $('#joinName'); if (ji) ji.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
     } else {
-      head.innerHTML = '<div class="join-banner"><div><b>🟢 Signed in as ' + escapeHtml(LS.Cloud.me().name) + '</b><small>Your home is live on the shared map.</small></div><div class="join-form"><button class="btn btn-ghost btn-sm" id="publishBtn">↻ Publish my home</button><button class="btn btn-ghost btn-sm" id="signoutBtn">Sign out</button></div></div>';
+      head.innerHTML = '<div class="join-banner"><div><b>🟢 Signed in as ' + escapeHtml(LS.Cloud.me().name) + '</b><small>Your home is live on the shared map.</small></div><div class="join-form"><button class="btn btn-ghost btn-sm" id="housePrivacy" title="Control who can visit your house">🌍 Public</button><button class="btn btn-ghost btn-sm" id="publishBtn">↻ Publish</button><button class="btn btn-ghost btn-sm" id="signoutBtn">Sign out</button></div></div>';
+      const hp = $('#housePrivacy'); if (hp) hp.addEventListener('click', toggleHousePrivacy);
+      updatePrivacyBtn();
       const pb = $('#publishBtn'); if (pb) pb.addEventListener('click', async () => { await LS.Cloud.publish(LS.load()); toast('Home published to the community', 'success'); renderCommunity(); });
       const sb = $('#signoutBtn'); if (sb) sb.addEventListener('click', () => { LS.Cloud.signOut(); renderCommunity(); });
     }
+  }
+
+  // ---- House visitor controls (private toggle + per-player block) ----
+  let _myPrivate = false;
+  function updatePrivacyBtn() {
+    const hp = $('#housePrivacy'); if (!hp) return;
+    hp.textContent = _myPrivate ? '🔒 Private' : '🌍 Public';
+    hp.title = _myPrivate ? 'Your house is hidden — click to make it public' : 'Anyone can visit — click to make it private';
+  }
+  async function toggleHousePrivacy() {
+    const r = await LS.Cloud.setHousePrivate(!_myPrivate);
+    if (r && r.ok) {
+      _myPrivate = !!(r.control && r.control.private);
+      updatePrivacyBtn();
+      toast(_myPrivate ? 'House is now private 🔒 — nobody can visit' : 'House is public again 🌍', 'success');
+      renderCommunity();
+    } else toast('Could not update privacy', 'error');
+  }
+  async function blockNeighbour(id, name) {
+    if (!window.confirm('Block ' + name + ' from visiting your house?')) return;
+    const r = await LS.Cloud.blockPlayer(id);
+    if (r && r.ok) { toast('🚫 ' + name + ' blocked — they can no longer visit you', 'success'); renderCommunity(); }
+    else toast('Could not block', 'error');
   }
 
   async function doJoin() {
@@ -532,6 +557,7 @@
     grid.innerHTML = '<div class="community-loading">Loading neighbourhood…</div>';
     let players = [];
     try { players = await LS.Cloud.listPlayers(); } catch (e) { players = []; }
+    const mineEntry = players.find((p) => p.isYou); _myPrivate = !!(mineEntry && mineEntry.private); updatePrivacyBtn();
 
     // live presence bar — how many townies, who's playing, the hotspot
     const statsEl = $('#communityStats');
@@ -568,7 +594,10 @@
           <div class="cm-info"><b>${escapeHtml(p.name)}${p.isYou ? ' <span class="cm-tag">You</span>' : ''}</b>
             <small>${status}</small>
             <small class="cm-sub">🪑 ${p.furniture || 0} items · ₱${num(p.houseValue || 0)}</small></div>
-          <a href="${link}" class="btn btn-primary btn-sm">${p.isYou ? 'Enter' : 'Visit'} →</a>
+          <div class="cm-actions">
+            <a href="${link}" class="btn btn-primary btn-sm">${p.isYou ? 'Enter' : 'Visit'} →</a>
+            ${p.isYou ? '' : `<button class="btn btn-ghost btn-sm cm-block" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}" title="Block ${escapeHtml(p.name)} from visiting your house">🚫</button>`}
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -961,6 +990,12 @@
       if (cancel) marketCancel(cancel.dataset.id);
     });
     const mearn = $('#marketEarn'); if (mearn) mearn.addEventListener('click', (e) => { if (e.target.closest('#marketCollect')) marketCollect(); });
+
+    // community — block a neighbour from visiting your house
+    const cg = $('#communityGrid'); if (cg) cg.addEventListener('click', (e) => {
+      const b = e.target.closest('.cm-block'); if (!b) return;
+      e.preventDefault(); blockNeighbour(b.dataset.id, b.dataset.name);
+    });
   }
 
   // ---------------- WELCOME / ONBOARDING ----------------

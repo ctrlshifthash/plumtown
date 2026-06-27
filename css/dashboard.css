@@ -659,6 +659,9 @@
 .cm-info b { font-size: 14px; }
 .cm-info small { display: block; color: var(--text-faint); font-size: 11px; margin-top: 2px; }
 .cm-tag { font-size: 9px; background: var(--grad); color: #fff; padding: 1px 6px; border-radius: 999px; vertical-align: middle; font-family: var(--font); font-weight: 600; }
+.cm-actions { display: flex; gap: 8px; align-items: center; }
+.cm-block { padding: 6px 10px; }
+.cm-block:hover { background: var(--danger, #ff6b6b); color: #fff; border-color: var(--danger, #ff6b6b); }
 .join-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--radius-lg); padding: 15px 20px; margin-bottom: 18px; }
 .join-banner b { font-family: var(--font-display); }
 .join-banner small { display: block; color: var(--text-faint); font-size: 12.5px; margin-top: 2px; }

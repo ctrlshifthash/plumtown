@@ -189,7 +189,7 @@
 
   async function listPlayers() {
     if (!isRemote()) return listPlayersLocal();
-    const data = await apiGet('/players');
+    const data = await apiGetAuth('/players'); // authed so the server can hide private/blocked houses
     const myId = me() && me().id;
     return (data.players || []).map((p) => Object.assign({}, p, { isYou: p.id === myId }));
   }
@@ -197,9 +197,18 @@
   async function getWorld(id) {
     if (id === 'you') return selfWorld();
     if (!isRemote()) return getWorldLocal(id);
-    try { const data = await apiGet('/world/' + encodeURIComponent(id)); return data.world; }
+    try { const data = await apiGetAuth('/world/' + encodeURIComponent(id)); return data.world; }
     catch (e) { return null; }
   }
+
+  // House visitor controls — make your house private, block/unblock a player.
+  async function setHouseControl(patch) {
+    if (!isRemote() || !me()) return { ok: false };
+    try { return await apiPost('/house/control', patch || {}, true); } catch (e) { return { ok: false }; }
+  }
+  function blockPlayer(id) { return setHouseControl({ block: id }); }
+  function unblockPlayer(id) { return setHouseControl({ unblock: id }); }
+  function setHousePrivate(v) { return setHouseControl({ private: !!v }); }
 
   async function heartbeat() { if (isRemote() && me()) { try { await apiPost('/heartbeat', {}, true); } catch (e) { /* */ } } }
 
@@ -326,6 +335,7 @@
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
     getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, // marketplace
+    setHouseControl, blockPlayer, unblockPlayer, setHousePrivate, // house visitor controls
     listPlayersLocal, getWorldLocal, ensureSeeded, selfWorld, generateNeighborWorld, // local/test
     housePreviewHTML, summaryOf, worldSnapshot
   };

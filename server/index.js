@@ -54,7 +54,7 @@ function memoryStore() {
     async init() {},
     async createPlayer(name) {
       const id = uid(), apiKey = key();
-      players.set(id, { id, name: name, apiKey, summary: { name }, world: null, lastSeen: Date.now() });
+      players.set(id, { id, name: name, apiKey, summary: { name }, world: null, lastSeen: Date.now(), private: false, blocked: [] });
       return { id, apiKey, name };
     },
     async byKey(apiKey) {
@@ -66,14 +66,27 @@ function memoryStore() {
       p.summary = summary || p.summary; p.world = world; p.lastSeen = Date.now();
     },
     async touch(id) { const p = players.get(id); if (p) p.lastSeen = Date.now(); },
-    async list() {
+    async list(viewerId) {
       return Array.from(players.values())
         .filter((p) => p.world) // only players who've published a house
+        .filter((p) => p.id === viewerId || (!p.private && !(p.blocked || []).includes(viewerId))) // privacy + blocklist
         .sort((a, b) => b.lastSeen - a.lastSeen)
         .slice(0, 200)
-        .map((p) => Object.assign({ id: p.id, name: p.name, lastSeen: p.lastSeen, online: Date.now() - p.lastSeen < ONLINE_WINDOW_MS }, p.summary));
+        .map((p) => Object.assign({ id: p.id, name: p.name, lastSeen: p.lastSeen, online: Date.now() - p.lastSeen < ONLINE_WINDOW_MS, private: !!p.private }, p.summary));
     },
-    async getWorld(id) { const p = players.get(id); return p ? p.world : null; },
+    async getWorld(id, viewerId) {
+      const p = players.get(id); if (!p) return null;
+      if (id !== viewerId && (p.private || (p.blocked || []).includes(viewerId))) return null; // private / blocked
+      return p.world;
+    },
+    async setHouseControl(id, patch) {
+      const p = players.get(id); if (!p) return null;
+      if (typeof patch.private === 'boolean') p.private = patch.private;
+      p.blocked = p.blocked || [];
+      if (patch.block && patch.block !== id && !p.blocked.includes(patch.block)) p.blocked.push(patch.block);
+      if (patch.unblock) p.blocked = p.blocked.filter((b) => b !== patch.unblock);
+      return { private: !!p.private, blocked: p.blocked };
+    },
     // ---- P2E reward ledger ----
     async getRewards(id) {
       const p = players.get(id); if (!p) return null;
@@ -123,6 +136,8 @@ function pgStore() {
         summary jsonb, world jsonb, last_seen timestamptz DEFAULT now())`);
       // P2E ledger — additive migration so existing deploys upgrade cleanly.
       await pool.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS rewards jsonb');
+      await pool.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS private boolean DEFAULT false');
+      await pool.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS blocked jsonb DEFAULT '[]'");
       await pool.query(`CREATE TABLE IF NOT EXISTS payouts (
         id text PRIMARY KEY, player_id text, asset text, credits numeric,
         base numeric, signature text, status text, created_at timestamptz DEFAULT now())`);
@@ -150,16 +165,32 @@ function pgStore() {
       await pool.query('UPDATE players SET summary=$2, world=$3, last_seen=now() WHERE id=$1', [id, summary, world]);
     },
     async touch(id) { await pool.query('UPDATE players SET last_seen=now() WHERE id=$1', [id]); },
-    async list() {
-      const r = await pool.query('SELECT id,name,summary,last_seen FROM players WHERE world IS NOT NULL ORDER BY last_seen DESC LIMIT 200');
-      return r.rows.map((row) => {
-        const seen = new Date(row.last_seen).getTime();
-        return Object.assign({ id: row.id, name: row.name, lastSeen: seen, online: Date.now() - seen < ONLINE_WINDOW_MS }, row.summary || {});
-      });
+    async list(viewerId) {
+      const r = await pool.query('SELECT id,name,summary,last_seen,private,blocked FROM players WHERE world IS NOT NULL ORDER BY last_seen DESC LIMIT 300');
+      return r.rows
+        .filter((row) => row.id === viewerId || (!row.private && !((row.blocked || []).includes(viewerId))))
+        .slice(0, 200)
+        .map((row) => {
+          const seen = new Date(row.last_seen).getTime();
+          return Object.assign({ id: row.id, name: row.name, lastSeen: seen, online: Date.now() - seen < ONLINE_WINDOW_MS, private: !!row.private }, row.summary || {});
+        });
     },
-    async getWorld(id) {
-      const r = await pool.query('SELECT world FROM players WHERE id=$1', [id]);
-      return r.rows[0] ? r.rows[0].world : null;
+    async getWorld(id, viewerId) {
+      const r = await pool.query('SELECT world,private,blocked FROM players WHERE id=$1', [id]);
+      if (!r.rows[0]) return null;
+      const row = r.rows[0];
+      if (id !== viewerId && (row.private || ((row.blocked || []).includes(viewerId)))) return null; // private / blocked
+      return row.world;
+    },
+    async setHouseControl(id, patch) {
+      const r0 = await pool.query('SELECT private,blocked FROM players WHERE id=$1', [id]);
+      if (!r0.rows[0]) return null;
+      let priv = r0.rows[0].private; let blocked = r0.rows[0].blocked || [];
+      if (typeof patch.private === 'boolean') priv = patch.private;
+      if (patch.block && patch.block !== id && !blocked.includes(patch.block)) blocked.push(patch.block);
+      if (patch.unblock) blocked = blocked.filter((b) => b !== patch.unblock);
+      await pool.query('UPDATE players SET private=$2, blocked=$3 WHERE id=$1', [id, priv, JSON.stringify(blocked)]);
+      return { private: !!priv, blocked: blocked };
     },
     // ---- P2E reward ledger ----
     async getRewards(id) {
@@ -371,13 +402,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (path === '/api/players' && req.method === 'GET') {
-      return send(res, 200, { players: await db.list() });
+      const viewer = await db.byKey(req.headers['x-api-key']);
+      return send(res, 200, { players: await db.list(viewer ? viewer.id : null) });
     }
 
     if (path.startsWith('/api/world/') && req.method === 'GET') {
       const id = decodeURIComponent(path.slice('/api/world/'.length));
-      const world = await db.getWorld(id);
-      if (!world) return send(res, 404, { error: 'not found' });
+      const viewer = await db.byKey(req.headers['x-api-key']);
+      const world = await db.getWorld(id, viewer ? viewer.id : null);
+      if (!world) return send(res, 404, { error: 'not found' }); // missing, private, or you're blocked
       return send(res, 200, { world });
     }
 
@@ -387,6 +420,19 @@ const server = http.createServer(async (req, res) => {
       const b = await body(req);
       await db.saveWorld(me.id, b.summary || null, b.world || null);
       return send(res, 200, { ok: true });
+    }
+
+    // House visitor controls: make your house private, or block/unblock players.
+    if (path === '/api/house/control' && req.method === 'POST') {
+      const me = await db.byKey(req.headers['x-api-key']);
+      if (!me) return send(res, 401, { error: 'unauthorized' });
+      const b = await body(req);
+      const patch = {};
+      if (typeof b.private === 'boolean') patch.private = b.private;
+      if (b.block) patch.block = String(b.block).slice(0, 40);
+      if (b.unblock) patch.unblock = String(b.unblock).slice(0, 40);
+      const r = await db.setHouseControl(me.id, patch);
+      return send(res, 200, { ok: !!r, control: r || { private: false, blocked: [] } });
     }
 
     if (path === '/api/heartbeat' && req.method === 'POST') {
