@@ -160,6 +160,7 @@
         </div>
         <div class="sim-actions">
           <a href="game.html?sim=${sim.id}" class="btn btn-primary">Play</a>
+          <button class="btn btn-ghost" onclick="openWardrobe('${sim.id}')">👕 Style</button>
           <button class="btn btn-ghost" onclick="deleteSim('${sim.id}')">Delete</button>
         </div>
       </div>`;
@@ -176,6 +177,49 @@
     renderTopbar();
     toast('Sim deleted', 'error');
   };
+
+  // ---------------- WARDROBE / CLOTHING SHOP ----------------
+  let _wardrobeSimId = null;
+  window.openWardrobe = function (id) {
+    _wardrobeSimId = id;
+    renderWardrobe();
+    const m = $('#wardrobeModal'); if (m) m.classList.add('open');
+  };
+  function wardrobeSim() { return state.sims.find((s) => s.id === _wardrobeSimId) || null; }
+  function ownsOutfit(sim, o) { return o.price === 0 || o.color === sim.outfitColor || (sim.wardrobe || []).indexOf(o.id) >= 0; }
+  function refreshSimCards() { renderSimsList($('#simList')); renderSimsList($('#simListFull')); }
+  function renderWardrobe() {
+    const sim = wardrobeSim(); const grid = $('#wardrobeGrid'); const bal = $('#wardrobeBal');
+    if (!sim || !grid) return;
+    if (bal) bal.innerHTML = 'Dressing <b>' + escapeHtml(sim.name) + '</b> · Wallet <b>₱' + num(sim.money || 0) + '</b>';
+    grid.innerHTML = (LS.WARDROBE || []).map((o) => {
+      const equipped = o.color === sim.outfitColor;
+      const owned = ownsOutfit(sim, o);
+      const action = equipped ? '<span class="wd-eq">✓ Wearing</span>'
+        : (owned ? '<button class="btn btn-primary btn-sm wd-equip" data-id="' + o.id + '">Wear</button>'
+          : '<button class="btn btn-ghost btn-sm wd-buy" data-id="' + o.id + '">Buy ₱' + num(o.price) + '</button>');
+      return '<div class="wd-item' + (equipped ? ' on' : '') + '">' +
+        '<div class="wd-swatch" style="background:' + o.color + '"></div>' +
+        '<div class="wd-name">' + escapeHtml(o.name) + '</div>' + action + '</div>';
+    }).join('');
+  }
+  function wardrobeEquip(id) {
+    const sim = wardrobeSim(); const o = (LS.WARDROBE || []).find((x) => x.id === id);
+    if (!sim || !o) return;
+    sim.outfitColor = o.color; LS.save(state);
+    renderWardrobe(); refreshSimCards();
+    toast('Now wearing ' + o.name + ' 👕', 'success');
+  }
+  function wardrobeBuy(id) {
+    const sim = wardrobeSim(); const o = (LS.WARDROBE || []).find((x) => x.id === id);
+    if (!sim || !o) return;
+    if ((sim.money || 0) < o.price) { toast('Not enough ₱ — earn more by playing', 'error'); return; }
+    sim.money = Math.round((sim.money || 0) - o.price);
+    sim.wardrobe = sim.wardrobe || []; if (sim.wardrobe.indexOf(id) < 0) sim.wardrobe.push(id);
+    sim.outfitColor = o.color; LS.save(state);
+    renderWardrobe(); refreshSimCards();
+    toast('Bought & wearing ' + o.name + ' 👕', 'success');
+  }
 
   // ---------------- RENDER: QUESTS ----------------
   function renderQuestPreview() {
@@ -995,6 +1039,14 @@
     const cg = $('#communityGrid'); if (cg) cg.addEventListener('click', (e) => {
       const b = e.target.closest('.cm-block'); if (!b) return;
       e.preventDefault(); blockNeighbour(b.dataset.id, b.dataset.name);
+    });
+
+    // wardrobe / clothing shop
+    const cwb = $('#closeWardrobe'); if (cwb) cwb.addEventListener('click', () => $('#wardrobeModal').classList.remove('open'));
+    const wmod = $('#wardrobeModal'); if (wmod) wmod.addEventListener('click', (e) => { if (e.target.id === 'wardrobeModal') wmod.classList.remove('open'); });
+    const wgrid = $('#wardrobeGrid'); if (wgrid) wgrid.addEventListener('click', (e) => {
+      const eq = e.target.closest('.wd-equip'); if (eq) { wardrobeEquip(eq.dataset.id); return; }
+      const by = e.target.closest('.wd-buy'); if (by) wardrobeBuy(by.dataset.id);
     });
   }
 

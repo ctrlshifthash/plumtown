@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    LifeSim — Game Controller (v3)
    Builds DOM once, updates values per tick. The Sim walks the
    lot via pathfinding (clock.js), so the renderer just maps the
@@ -883,6 +883,9 @@
     }
     el.style.left = c.x + 'px';
     el.style.top = c.y + 'px';
+    // depth-sort with furniture (same formula as objStyle) so the Sim renders in
+    // front of objects it's standing before, instead of being buried at a fixed z.
+    el.style.zIndex = Math.round((py + 1) * 10) + 1;
     // guarded writes — only touch the DOM when something actually changed
     if (el._pose !== pose) { el.classList.remove('pose-sit', 'pose-lie', 'pose-stand'); el.classList.add('pose-' + pose); el._pose = pose; }
     const posing = !!isUsing;
@@ -941,6 +944,14 @@
     // highlight the object in use
     const usingUid = (sim.action && sim.action.phase === 'using' && sim.action.target) ? sim.action.target : null;
     Object.keys(objEls).forEach((uid) => objEls[uid].classList.toggle('used', uid === usingUid));
+
+    // see-through: fade any tall object the Sim is standing behind, so it's never fully hidden
+    const _rx = Math.round(sim.px), _ry = Math.round(sim.py);
+    (state.lot.furniture || []).forEach((f) => {
+      const oe = objEls[f.uid]; if (!oe) return;
+      const behind = _rx >= f.x && _rx < f.x + f.size.w && _ry >= f.y - 2 && _ry < f.y + f.size.h && (f.y + f.size.h) > (_ry + 1);
+      if (oe._fade !== behind) { oe.style.opacity = behind ? '0.4' : ''; oe._fade = behind; }
+    });
 
     // thought bubble — what the Sim wants (idle) or is heading to (walking)
     if (thoughtEl) {
@@ -1837,3 +1848,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
+// _b:6

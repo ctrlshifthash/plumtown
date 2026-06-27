@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    LifeSim — Core Game State Engine
    Central model: player, sims, needs, skills, careers,
    relationships, inventory, lot, economy, time, quests.
@@ -177,6 +177,25 @@
   const SKIN_TONES = ['#f5d6b5', '#e8b88f', '#c98e63', '#a06b41', '#74481f', '#4a2c10'];
   const OUTFIT_COLORS = ['#7c5cff', '#00e0c6', '#ff5c7c', '#ffb454', '#5cffa6', '#5cc8ff'];
   const HAIR_COLORS = ['#1c1410', '#5a3a22', '#8a5a2b', '#c9962f', '#d94f4f', '#5c6bc0', '#e8e8e8'];
+
+  // Wardrobe — outfits players buy with ₱ Plumbucks and wear on their Sim.
+  // The six 0-cost tees match OUTFIT_COLORS so every Sim already owns its look.
+  const WARDROBE = [
+    { id: 'tee_violet', name: 'Violet Tee',    color: '#7c5cff', price: 0 },
+    { id: 'tee_teal',   name: 'Teal Tee',      color: '#00e0c6', price: 0 },
+    { id: 'tee_rose',   name: 'Rose Tee',      color: '#ff5c7c', price: 0 },
+    { id: 'tee_amber',  name: 'Amber Tee',     color: '#ffb454', price: 0 },
+    { id: 'tee_mint',   name: 'Mint Tee',      color: '#5cffa6', price: 0 },
+    { id: 'tee_sky',    name: 'Sky Tee',       color: '#5cc8ff', price: 0 },
+    { id: 'sunset',     name: 'Sunset Jacket', color: '#ff7a4d', price: 250 },
+    { id: 'bubblegum',  name: 'Bubblegum Fit', color: '#ff9ed8', price: 350 },
+    { id: 'ice',        name: 'Ice Parka',     color: '#a8e6ff', price: 450 },
+    { id: 'royal',      name: 'Royal Suit',    color: '#3b3a8f', price: 500 },
+    { id: 'emerald',    name: 'Emerald Gown',  color: '#1e9e6a', price: 500 },
+    { id: 'crimson',    name: 'Crimson Cloak', color: '#c0354f', price: 650 },
+    { id: 'midnight',   name: 'Midnight Coat', color: '#2b2b40', price: 750 },
+    { id: 'gold',       name: 'Golden Drip',   color: '#e8b923', price: 1200 }
+  ];
 
   // Emotional states (Sims-style). Picked by emotions.js from needs + moodlets.
   const EMOTION_META = {
@@ -508,7 +527,7 @@
   const LifeSim = {
     // data
     NEEDS, NEED_META, SKILLS, SKILL_META, CAREERS, ASPIRATIONS, TRAITS,
-    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
+    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, WARDROBE, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
     HOME_WALLS, HOME_ROOMS, HOME_DOORS,
     // factories
     createSim, createNPC, hydrateSim,
@@ -522,3 +541,4 @@
 
   window.LifeSim = LifeSim;
 })();
+// _b:7

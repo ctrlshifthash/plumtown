@@ -736,6 +736,18 @@
 .mc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: auto; }
 .mc-price { font-family: var(--font-display); font-weight: 800; color: var(--plumbob-deep); font-size: 16px; }
 
+/* ---- Wardrobe / clothing shop ---- */
+.wardrobe-card { max-width: 560px; width: 92vw; }
+.wardrobe-bal { padding: 0 4px 14px; color: var(--text-faint); font-size: 13px; }
+.wardrobe-bal b { color: var(--text); font-family: var(--font-display); }
+.wardrobe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; padding: 2px; }
+.wd-item { background: var(--surface); border: 2px solid var(--border-ink); border-radius: var(--radius); box-shadow: 0 3px 0 var(--border-2); padding: 12px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wd-item.on { border-color: var(--plumbob-deep); background: rgba(46,230,166,0.12); }
+.wd-swatch { width: 48px; height: 48px; border-radius: 14px; border: 2px solid var(--border-ink); }
+.wd-name { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--text); line-height: 1.2; }
+.wd-eq { font-family: var(--font-pixel); font-size: 9px; color: var(--plumbob-deep); text-transform: uppercase; letter-spacing: .04em; }
+.wd-item .btn { width: 100%; }
+
 /* ---- P2E: redeemable rewards (real Solana payouts) ---- */
 .p2e-panel { margin-top: 18px; }
 .p2e-panel .panel-head h3 { display: flex; align-items: center; gap: 8px; }
