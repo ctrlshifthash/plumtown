@@ -42,7 +42,7 @@ const CONFIG = {
   creditsPerUnit: numEnv('P2E_CREDITS_PER_UNIT', 100000),
 
   // Withdrawal rails.
-  minWithdrawCredits: numEnv('P2E_MIN_WITHDRAW', 500),      // floor to cash out (0.005 SOL)
+  minWithdrawCredits: numEnv('P2E_MIN_WITHDRAW', 100),      // floor to cash out (0.001 SOL)
   dailyWithdrawCap:   numEnv('P2E_DAILY_WITHDRAW_CAP', 20000), // RC / 24h
   withdrawCooldownMs: numEnv('P2E_WITHDRAW_COOLDOWN_MS', 60 * 1000),
   withdrawFeeCredits: numEnv('P2E_WITHDRAW_FEE', 0),         // RC kept by treasury per cashout
