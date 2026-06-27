@@ -61,13 +61,13 @@ const CONFIG = {
    earn real SOL, and bigger holders earn at a higher multiplier.
    Holdings are checked on-chain (see solana.js holderPct).
    ---------------------------------------------------------------- */
-const MIN_HOLD_PCT = numEnv('P2E_MIN_HOLD_PCT', 0.5);
+const MIN_HOLD_PCT = numEnv('P2E_MIN_HOLD_PCT', 0.1);
 const TIERS = [
-  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 3.5, mult: 3.5 },
-  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 3.0, mult: 3.0 },
-  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 2.0, mult: 2.0 },
-  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 1.0, mult: 1.5 },
-  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.5, mult: 1.0 }
+  { key: 'lord',    name: 'Plum Lord',    icon: '👑', minPct: 1.0,  mult: 3.5 },
+  { key: 'baron',   name: 'Plum Baron',   icon: '🏯', minPct: 0.75, mult: 3.0 },
+  { key: 'grove',   name: 'Grove Keeper', icon: '🌳', minPct: 0.5,  mult: 2.0 },
+  { key: 'sapling', name: 'Sapling',      icon: '🌿', minPct: 0.25, mult: 1.5 },
+  { key: 'sprout',  name: 'Sprout',       icon: '🌱', minPct: 0.1,  mult: 1.0 }
 ];
 // Resolve a holding % into a tier. null = unknown (not eligible).
 function tierFor(pct) {
