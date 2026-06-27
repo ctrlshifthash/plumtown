@@ -59,6 +59,7 @@
     if (name === 'wallet') renderWallet();
     if (name === 'community') { renderCommunity(); startChatPoll(); } else { stopChatPoll(); }
     if (name === 'market') renderMarket();
+    if (name === 'leaderboard') renderLeaderboard();
     if (name === 'settings') renderSettings();
     $('#sidebar').classList.remove('open');
   }
@@ -1013,6 +1014,26 @@
     if (typeof r.balance === 'number') state.player.lsc = r.balance;
     toast('Listing featured ⭐ — pinned to the top!', 'success');
     renderMarket(); renderTopbar();
+  }
+
+  // ---------------- LEADERBOARD ----------------
+  async function renderLeaderboard() {
+    const board = await LS.Cloud.getLeaderboard();
+    const myId = (LS.Cloud.me && LS.Cloud.me()) ? LS.Cloud.me().id : null;
+    const badge = (k) => ((LS.Cloud.tierBadge && LS.Cloud.tierBadge(k)) ? LS.Cloud.tierBadge(k) + ' ' : '');
+    const medal = (i) => (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
+    const row = (p, i, val) => '<div class="lb-row' + (p.id === myId ? ' me' : '') + '">' +
+      '<span class="lb-rank">' + medal(i) + '</span>' +
+      '<span class="lb-name">' + badge(p.tier) + escapeHtml(p.name || '?') + '</span>' +
+      '<span class="lb-val">' + val + '</span></div>';
+    const fill = (sel, arr, valFn) => {
+      const el = $(sel); if (!el) return;
+      el.innerHTML = (arr && arr.length) ? arr.map((p, i) => row(p, i, valFn(p))).join('')
+        : '<div class="lb-empty">No entries yet — be the first! 🌱</div>';
+    };
+    fill('#lbEarners', board.earners, (p) => '💎 ' + num(p.earned));
+    fill('#lbRichest', board.richest, (p) => '₱' + num(p.value));
+    fill('#lbVisited', board.visited, (p) => '🚪 ' + num(p.visits));
   }
 
   function bind() {

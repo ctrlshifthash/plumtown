@@ -337,6 +337,12 @@
     }
     try { return await apiPost('/market/feature', { id: id }, true); } catch (e) { return { ok: false, reason: 'network' }; }
   }
+  async function getLeaderboard() {
+    const empty = { richest: [], earners: [], visited: [] };
+    if (!isRemote()) return empty;
+    try { const d = await apiGet('/leaderboard'); return (d && d.leaderboard) || empty; }
+    catch (e) { return empty; }
+  }
 
   // $PLUM holder-tier badge icons (key → emoji) shown in chat / community.
   const TIER_ICONS = { lord: '👑', duke: '🏰', baron: '🏯', homestead: '🏡', orchard: '🌳', grove: '🍃', sapling: '🌿', sprout: '🌱' };
@@ -347,6 +353,7 @@
     listPlayers, getWorld,                 // async, mode-agnostic
     sendChat, getChat,                     // neighbourhood chat
     getMarket, listItem, buyItem, cancelListing: cancelMarketListing, collectEarnings, featureListing: featureMarketListing, // marketplace
+    getLeaderboard, // leaderboards
     setHouseControl, blockPlayer, unblockPlayer, setHousePrivate, // house visitor controls
     listPlayersLocal, getWorldLocal, ensureSeeded, selfWorld, generateNeighborWorld, // local/test
     housePreviewHTML, summaryOf, worldSnapshot

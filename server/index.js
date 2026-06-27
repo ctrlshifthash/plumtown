@@ -54,7 +54,7 @@ function memoryStore() {
     async init() {},
     async createPlayer(name) {
       const id = uid(), apiKey = key();
-      players.set(id, { id, name: name, apiKey, summary: { name }, world: null, lastSeen: Date.now(), private: false, blocked: [] });
+      players.set(id, { id, name: name, apiKey, summary: { name }, world: null, lastSeen: Date.now(), private: false, blocked: [], visits: 0 });
       return { id, apiKey, name };
     },
     async byKey(apiKey) {
@@ -87,6 +87,8 @@ function memoryStore() {
       if (patch.unblock) p.blocked = p.blocked.filter((b) => b !== patch.unblock);
       return { private: !!p.private, blocked: p.blocked };
     },
+    async incrementVisits(id) { const p = players.get(id); if (p) p.visits = (p.visits || 0) + 1; },
+    async leaderboard() { return buildLeaderboard(Array.from(players.values()).filter((p) => p.world && !p.private)); },
     // ---- P2E reward ledger ----
     async getRewards(id) {
       const p = players.get(id); if (!p) return null;
@@ -146,6 +148,7 @@ function pgStore() {
       await pool.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS rewards jsonb');
       await pool.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS private boolean DEFAULT false');
       await pool.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS blocked jsonb DEFAULT '[]'");
+      await pool.query('ALTER TABLE players ADD COLUMN IF NOT EXISTS visits integer DEFAULT 0');
       await pool.query(`CREATE TABLE IF NOT EXISTS payouts (
         id text PRIMARY KEY, player_id text, asset text, credits numeric,
         base numeric, signature text, status text, created_at timestamptz DEFAULT now())`);
@@ -201,6 +204,11 @@ function pgStore() {
       if (patch.unblock) blocked = blocked.filter((b) => b !== patch.unblock);
       await pool.query('UPDATE players SET private=$2, blocked=$3 WHERE id=$1', [id, priv, JSON.stringify(blocked)]);
       return { private: !!priv, blocked: blocked };
+    },
+    async incrementVisits(id) { await pool.query('UPDATE players SET visits=COALESCE(visits,0)+1 WHERE id=$1', [id]); },
+    async leaderboard() {
+      const r = await pool.query('SELECT id,name,summary,rewards,visits FROM players WHERE world IS NOT NULL AND private IS NOT TRUE LIMIT 500');
+      return buildLeaderboard(r.rows.map((row) => ({ id: row.id, name: row.name, summary: row.summary || {}, rewards: row.rewards || {}, visits: row.visits || 0 })));
     },
     // ---- P2E reward ledger ----
     async getRewards(id) {
@@ -384,6 +392,17 @@ async function resolveTier(r, now) {
   return tier;
 }
 
+// Build the three leaderboards from a normalized player array.
+function buildLeaderboard(list) {
+  const map = (p) => ({ id: p.id, name: p.name, tier: (p.rewards && p.rewards.tierKey) || null });
+  const top = (sel) => list.slice().sort((a, b) => sel(b) - sel(a)).filter((p) => sel(p) > 0).slice(0, 10);
+  return {
+    richest: top((p) => (p.summary && p.summary.houseValue) || 0).map((p) => Object.assign(map(p), { value: Math.floor((p.summary.houseValue) || 0) })),
+    earners: top((p) => (p.rewards && p.rewards.lifetimeEarned) || 0).map((p) => Object.assign(map(p), { earned: Math.floor((p.rewards.lifetimeEarned) || 0) })),
+    visited: top((p) => p.visits || 0).map((p) => Object.assign(map(p), { visits: p.visits || 0 }))
+  };
+}
+
 // A player's standing, with internal bookkeeping (the `credited` map) stripped.
 function publicRewards(r, now) {
   now = now || Date.now();
@@ -433,7 +452,14 @@ const server = http.createServer(async (req, res) => {
       const viewer = await db.byKey(req.headers['x-api-key']);
       const world = await db.getWorld(id, viewer ? viewer.id : null);
       if (!world) return send(res, 404, { error: 'not found' }); // missing, private, or you're blocked
+      if (viewer && viewer.id !== id && db.incrementVisits) { try { await db.incrementVisits(id); } catch (e) { /* non-critical */ } }
       return send(res, 200, { world });
+    }
+
+    // Leaderboards: richest homes, top $PLUM earners, most-visited houses.
+    if (path === '/api/leaderboard' && req.method === 'GET') {
+      const board = db.leaderboard ? await db.leaderboard() : { richest: [], earners: [], visited: [] };
+      return send(res, 200, { leaderboard: board });
     }
 
     if (path === '/api/world' && req.method === 'POST') {

@@ -748,6 +748,18 @@
 .mc-feat { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #e8b923; color: #2a1c00; font-family: var(--font-pixel); font-size: 9px; letter-spacing: .04em; padding: 3px 9px; border-radius: 999px; border: 2px solid var(--border-ink); white-space: nowrap; }
 .mc-feature { padding: 6px 9px; }
 
+/* Leaderboard */
+.lb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.lb-panel { padding: 0; overflow: hidden; }
+.lb-list { display: flex; flex-direction: column; }
+.lb-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.lb-row:first-child { border-top: 0; }
+.lb-row.me { background: rgba(124, 196, 90, 0.16); }
+.lb-rank { width: 26px; text-align: center; font-family: var(--font-display); font-weight: 800; color: var(--text-soft); flex: 0 0 auto; }
+.lb-name { flex: 1 1 auto; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-val { flex: 0 0 auto; font-family: var(--font-display); font-weight: 800; color: var(--plumbob-deep); }
+.lb-empty { padding: 18px 14px; color: var(--text-soft); text-align: center; }
+
 /* ---- Wardrobe / clothing shop ---- */
 .wardrobe-card { max-width: 560px; width: 92vw; }
 .wardrobe-bal { padding: 0 4px 14px; color: var(--text-faint); font-size: 13px; }
