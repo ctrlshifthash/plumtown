@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    LifeSim — Build & Buy System
    Furniture catalog, placement on a grid lot, sell, lot value.
    Furniture provides need bonuses (e.g., bed → energy).
@@ -109,6 +109,24 @@
     });
     state.lot.furniture = [];
     state.lot.value = 0;
+  }
+
+  // Grow the lot (expansions only ever increase size) while preserving all
+  // existing tiles, furniture and walls. Returns true if it grew.
+  function resizeLot(state, newW, newH) {
+    const old = state.lot.tiles || [];
+    const oldH = old.length, oldW = oldH ? old[0].length : 0;
+    if (newW <= oldW && newH <= oldH) return false;
+    state.lot.size = { w: newW, h: newH };
+    const tiles = [];
+    for (let y = 0; y < newH; y++) {
+      const row = [];
+      for (let x = 0; x < newW; x++) row.push((old[y] && old[y][x] !== undefined) ? old[y][x] : null);
+      tiles.push(row);
+    }
+    state.lot.tiles = tiles;
+    (state.lot.walls || []).forEach((wll) => { if (tiles[wll.y] && wll.x < newW) tiles[wll.y][wll.x] = 'WALL'; });
+    return true;
   }
 
   function ensureLot(state) {
@@ -395,6 +413,7 @@
     byId,
     ensureLot,
     initLot,
+    resizeLot,
     canPlace,
     buy,
     buyToInventory,
@@ -414,3 +433,4 @@
     catalogByCategory
   };
 })();
+// _b:7

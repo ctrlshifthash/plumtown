@@ -216,6 +216,13 @@
     { id: 'dragon', name: 'Dragon', emoji: '🐉', plum: 1000 }
   ];
 
+  // Lot expansions — buy bigger plots with $PLUM (default lot is 12×10).
+  const LOT_EXPANSIONS = [
+    { id: 'plot_grand',  name: 'Grand Plot', w: 15, h: 12, plum: 400 },
+    { id: 'plot_estate', name: 'Estate',     w: 18, h: 14, plum: 900 },
+    { id: 'plot_manor',  name: 'Manor',      w: 22, h: 16, plum: 2000 }
+  ];
+
   // Emotional states (Sims-style). Picked by emotions.js from needs + moodlets.
   const EMOTION_META = {
     ecstatic:      { label: 'Ecstatic',      icon: '🤩', color: '#2ee6a6', tone: 'good' },
@@ -546,7 +553,7 @@
   const LifeSim = {
     // data
     NEEDS, NEED_META, SKILLS, SKILL_META, CAREERS, ASPIRATIONS, TRAITS,
-    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, WARDROBE, PETS, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
+    SKIN_TONES, OUTFIT_COLORS, HAIR_COLORS, WARDROBE, PETS, LOT_EXPANSIONS, EMOTION_META, FLOOR_STYLES, WALL_STYLES,
     HOME_WALLS, HOME_ROOMS, HOME_DOORS,
     // factories
     createSim, createNPC, hydrateSim,

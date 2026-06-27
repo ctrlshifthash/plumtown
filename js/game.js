@@ -1190,6 +1190,29 @@
   // ================================================================
   // BUILD MODE
   // ================================================================
+  function nextExpansion() {
+    return (LS.LOT_EXPANSIONS || []).find((e) => e.w > state.lot.size.w) || null;
+  }
+  function renderExpandBtn() {
+    const eb = $('#expandLot'); if (!eb) return;
+    const exp = (state.location === 'home') ? nextExpansion() : null;
+    if (exp) { eb.style.display = ''; eb.innerHTML = '🏗️ Expand → ' + esc(exp.name) + ' · 💎 ' + num(exp.plum) + ' $PLUM'; eb.onclick = buyExpansion; }
+    else { eb.style.display = 'none'; }
+  }
+  async function buyExpansion() {
+    const exp = nextExpansion(); if (!exp) return;
+    if (!LS.P2E || !LS.P2E.isLive || !LS.P2E.isLive()) { toast('Connect your wallet (dashboard → Wallet) to spend $PLUM'); return; }
+    const r = await LS.P2E.spend(exp.plum, 'lot:' + exp.id);
+    if (!r || !r.ok) { toast(r && r.reason === 'insufficient' ? 'Not enough 💎 $PLUM' : 'Could not expand'); return; }
+    if (typeof r.balance === 'number') state.player.lsc = r.balance;
+    LS.Build.resizeLot(state, exp.w, exp.h);
+    state.lot.expansion = exp.id;
+    save();
+    buildLot(); renderBuild();
+    toast('Lot expanded to ' + exp.name + '! 🏗️', 'success');
+    if (LS.FX && LS.FX.confetti) LS.FX.confetti();
+  }
+
   function renderBuild() {
     LS.Build.ensureLot(state);
     const atHome = state.location === 'home';
@@ -1209,6 +1232,7 @@
     }
 
     $('#buildValue').textContent = 'Home value: ₱' + num(state.lot.value);
+    renderExpandBtn();
     $$('#buildTools .tool-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.tool === buildTool);
       b.onclick = () => { buildTool = b.dataset.tool; moveSel = null; buildSel = null; setHint(); renderBuild(); fx('click'); };
